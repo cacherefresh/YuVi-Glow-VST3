@@ -1,0 +1,517 @@
+#include "PluginProcessor.h"
+#include "PluginEditor.h"
+
+#include <cmath>
+
+YuViGlowAudioProcessor::YuViGlowAudioProcessor()
+    : AudioProcessor (BusesProperties()
+                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+      apvts (*this, nullptr, "PARAMETERS", createParameterLayout()),
+      midiDeviceManager ([this] (const juce::MidiMessage& message) { processIncomingMidi (message); })
+{
+    formatManager.registerBasicFormats();
+}
+
+YuViGlowAudioProcessor::~YuViGlowAudioProcessor()
+{
+    disconnectMidiInput();
+}
+
+juce::AudioProcessorValueTreeState::ParameterLayout YuViGlowAudioProcessor::createParameterLayout()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+
+    params.push_back (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "inputGain", 1 },
+        "Input Gain",
+        juce::NormalisableRange<float> (0.0f, 2.0f, 0.001f),
+        1.0f));
+
+    return { params.begin(), params.end() };
+}
+
+void YuViGlowAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+{
+    smoothedInputGain.reset (sampleRate, 0.02);
+    smoothedInputGain.setCurrentAndTargetValue (*apvts.getRawParameterValue ("inputGain"));
+}
+
+void YuViGlowAudioProcessor::releaseResources() {}
+
+bool YuViGlowAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+{
+    const auto mono = juce::AudioChannelSet::mono();
+    const auto stereo = juce::AudioChannelSet::stereo();
+
+    const auto outSet = layouts.getMainOutputChannelSet();
+    if (outSet != mono && outSet != stereo)
+        return false;
+
+    return layouts.getMainInputChannelSet() == outSet;
+}
+
+void YuViGlowAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+{
+    juce::ScopedNoDenormals noDenormals;
+    juce::ignoreUnused (midiMessages);
+
+    const int numSamples = buffer.getNumSamples();
+    const int numChannels = buffer.getNumChannels();
+
+    if (stopRequested.exchange (false))
+    {
+        playing.store (false);
+        playbackPosition.store (-1);
+    }
+
+    if (triggerRequested.exchange (false))
+    {
+        playbackPosition.store (0);
+        playing.store (true);
+    }
+
+    const float rawInputGain = apvts.getRawParameterValue ("inputGain")->load();
+    smoothedInputGain.setTargetValue (gainLocked.load() ? 1.0f : rawInputGain);
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float gain = smoothedInputGain.getNextValue();
+        for (int ch = 0; ch < numChannels; ++ch)
+            buffer.getWritePointer (ch)[i] *= gain;
+    }
+
+    if (playing.load())
+    {
+        const juce::ScopedLock sl (bufferLock);
+        const int bufferLength = sampleBuffer.getNumSamples();
+        const int pos = playbackPosition.load();
+
+        if (bufferLength > 0 && pos >= 0 && pos < bufferLength)
+        {
+            const int samplesToCopy = juce::jmin (numSamples, bufferLength - pos);
+            const int sampleChannels = sampleBuffer.getNumChannels();
+
+            for (int ch = 0; ch < numChannels; ++ch)
+            {
+                const int srcCh = juce::jmin (ch, sampleChannels - 1);
+                const float* src = sampleBuffer.getReadPointer (srcCh, pos);
+                float* dst = buffer.getWritePointer (ch);
+
+                for (int i = 0; i < samplesToCopy; ++i)
+                    dst[i] += src[i];
+            }
+
+            const int newPos = pos + samplesToCopy;
+            if (newPos >= bufferLength)
+            {
+                playing.store (false);
+                playbackPosition.store (-1);
+            }
+            else
+            {
+                playbackPosition.store (newPos);
+            }
+        }
+        else
+        {
+            playing.store (false);
+            playbackPosition.store (-1);
+        }
+    }
+}
+
+juce::AudioProcessorEditor* YuViGlowAudioProcessor::createEditor()
+{
+    return new YuViGlowAudioProcessorEditor (*this);
+}
+
+void YuViGlowAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    juce::ValueTree state ("YuViGlowState");
+    state.appendChild (apvts.copyState(), nullptr);
+    state.setProperty ("triggerNote", triggerNoteNumber.load(), nullptr);
+    state.setProperty ("triggerChannel", triggerMidiChannel.load(), nullptr);
+    state.setProperty ("gainCc", gainCcNumber.load(), nullptr);
+    state.setProperty ("gainChannel", gainMidiChannel.load(), nullptr);
+    state.setProperty ("gainLocked", gainLocked.load(), nullptr);
+    state.setProperty ("midiDeviceName", getCurrentMidiInputDisplayName(), nullptr);
+
+    for (int i = 0; i < numPads; ++i)
+        state.setProperty ("pad" + juce::String (i), padBank.getAssignment (i), nullptr);
+    for (int i = 0; i < numFaders; ++i)
+        state.setProperty ("fader" + juce::String (i), faderBank.getAssignment (i), nullptr);
+    for (int i = 0; i < numKnobs; ++i)
+        state.setProperty ("knob" + juce::String (i), knobBank.getAssignment (i), nullptr);
+
+    if (auto xml = state.createXml())
+        copyXmlToBinary (*xml, destData);
+}
+
+void YuViGlowAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
+    if (xml == nullptr)
+        return;
+
+    auto state = juce::ValueTree::fromXml (*xml);
+    if (! state.isValid())
+        return;
+
+    triggerNoteNumber.store ((int) state.getProperty ("triggerNote", -1));
+    triggerMidiChannel.store ((int) state.getProperty ("triggerChannel", -1));
+    gainCcNumber.store ((int) state.getProperty ("gainCc", -1));
+    gainMidiChannel.store ((int) state.getProperty ("gainChannel", -1));
+
+    const auto deviceName = state.getProperty ("midiDeviceName").toString();
+
+    auto paramsTree = state.getChildWithName (apvts.state.getType());
+    if (paramsTree.isValid())
+        apvts.replaceState (paramsTree);
+
+    setGainLocked ((bool) state.getProperty ("gainLocked", false));
+
+    for (int i = 0; i < numPads; ++i)
+        padBank.setAssignment (i, (int) state.getProperty ("pad" + juce::String (i), -1));
+    for (int i = 0; i < numFaders; ++i)
+        faderBank.setAssignment (i, (int) state.getProperty ("fader" + juce::String (i), -1));
+    for (int i = 0; i < numKnobs; ++i)
+        knobBank.setAssignment (i, (int) state.getProperty ("knob" + juce::String (i), -1));
+
+    if (deviceName.isNotEmpty())
+    {
+        for (auto& device : getClassifiedMidiInputs())
+        {
+            if (device.displayName == deviceName)
+            {
+                setMidiInputDevice (device);
+                break;
+            }
+        }
+    }
+}
+
+void YuViGlowAudioProcessor::loadAudioFile (const juce::File& file)
+{
+    std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
+    if (reader == nullptr)
+        return;
+
+    const int numChannels = static_cast<int> (reader->numChannels);
+    const int numSourceSamples = static_cast<int> (reader->lengthInSamples);
+
+    juce::AudioBuffer<float> sourceBuffer (numChannels, numSourceSamples);
+    reader->read (&sourceBuffer, 0, numSourceSamples, 0, true, true);
+
+    const double sourceRate = reader->sampleRate;
+    const double targetRate = getSampleRate() > 0.0 ? getSampleRate() : sourceRate;
+    const double ratio = targetRate > 0.0 ? sourceRate / targetRate : 1.0;
+
+    juce::AudioBuffer<float> newBuffer;
+
+    if (std::abs (ratio - 1.0) < 0.0001)
+    {
+        newBuffer = std::move (sourceBuffer);
+    }
+    else
+    {
+        const int numTargetSamples = static_cast<int> (std::ceil (numSourceSamples / ratio));
+        newBuffer.setSize (numChannels, numTargetSamples);
+
+        for (int ch = 0; ch < numChannels; ++ch)
+        {
+            juce::LagrangeInterpolator interpolator;
+            interpolator.reset();
+            interpolator.process (ratio, sourceBuffer.getReadPointer (ch), newBuffer.getWritePointer (ch), numTargetSamples);
+        }
+    }
+
+    {
+        const juce::ScopedLock sl (bufferLock);
+        sampleBuffer = std::move (newBuffer);
+        loadedFileName = file.getFileName();
+    }
+
+    stopPlayback();
+}
+
+juce::String YuViGlowAudioProcessor::getLoadedFileName() const
+{
+    const juce::ScopedLock sl (bufferLock);
+    return loadedFileName;
+}
+
+bool YuViGlowAudioProcessor::isFileLoaded() const
+{
+    const juce::ScopedLock sl (bufferLock);
+    return sampleBuffer.getNumSamples() > 0;
+}
+
+void YuViGlowAudioProcessor::triggerPlayback()
+{
+    if (isFileLoaded())
+        triggerRequested.store (true);
+}
+
+void YuViGlowAudioProcessor::stopPlayback()
+{
+    stopRequested.store (true);
+}
+
+void YuViGlowAudioProcessor::setGainLocked (bool shouldLock)
+{
+    gainLocked.store (shouldLock);
+
+    if (shouldLock)
+        if (auto* param = apvts.getParameter ("inputGain"))
+            param->setValueNotifyingHost (0.5f); // parameter range is fixed [0, 2.0] — 0.5 normalized = 1.0x = unity
+}
+
+void YuViGlowAudioProcessor::applyBestGuessMappingIfUnlearned()
+{
+    constexpr int bestGuessTriggerNote = 36; // near-universal "pad 1" note across MPC-style controllers
+    constexpr int bestGuessGainCc = 7;       // GM Volume — common factory default for fader 1
+
+    if (triggerNoteNumber.load() < 0)
+    {
+        triggerNoteNumber.store (bestGuessTriggerNote);
+        triggerMidiChannel.store (-1);
+    }
+
+    if (gainCcNumber.load() < 0)
+    {
+        gainCcNumber.store (bestGuessGainCc);
+        gainMidiChannel.store (-1);
+    }
+}
+
+void YuViGlowAudioProcessor::armLearnTriggerPad() { learningTrigger.store (true); }
+void YuViGlowAudioProcessor::armLearnGainFader() { learningGain.store (true); }
+
+juce::String YuViGlowAudioProcessor::getTriggerDescription() const
+{
+    const int note = triggerNoteNumber.load();
+    if (note < 0)
+        return "Not learned";
+    return "Note " + juce::String (note) + " (ch " + juce::String (triggerMidiChannel.load()) + ")";
+}
+
+juce::String YuViGlowAudioProcessor::getGainFaderDescription() const
+{
+    const int cc = gainCcNumber.load();
+    if (cc < 0)
+        return "Not learned";
+    return "CC " + juce::String (cc) + " (ch " + juce::String (gainMidiChannel.load()) + ")";
+}
+
+float YuViGlowAudioProcessor::getPadTouchAmount (int padIndex) const
+{
+    if (padIndex < 0 || padIndex >= numPads)
+        return 0.0f;
+
+    const int velocity = padVelocities[(size_t) padIndex].load();
+    if (velocity <= 0)
+        return 0.0f;
+
+    constexpr double fadeMs = 400.0;
+    const double elapsed = juce::Time::getMillisecondCounterHiRes() - padHitTimestampMs[(size_t) padIndex].load();
+    const double fade = juce::jlimit (0.0, 1.0, 1.0 - (elapsed / fadeMs));
+
+    return (float) (fade * (velocity / 127.0));
+}
+
+float YuViGlowAudioProcessor::getPadAfterglowAmount (int padIndex) const
+{
+    if (padIndex < 0 || padIndex >= numPads)
+        return 0.0f;
+
+    const int velocity = padVelocities[(size_t) padIndex].load();
+    if (velocity <= 0)
+        return 0.0f;
+
+    constexpr double delayMs = 150.0;  // waits for the purple flash to lead
+    constexpr double fadeMs = 1800.0;  // then lingers much longer than the flash
+
+    const double elapsed = juce::Time::getMillisecondCounterHiRes() - padHitTimestampMs[(size_t) padIndex].load();
+    const double sinceDelay = elapsed - delayMs;
+    if (sinceDelay < 0.0)
+        return 0.0f;
+
+    const double fade = juce::jlimit (0.0, 1.0, 1.0 - (sinceDelay / fadeMs));
+    return (float) (fade * (velocity / 127.0));
+}
+
+void YuViGlowAudioProcessor::setEditingMappings (bool shouldEdit)
+{
+    editingMappings.store (shouldEdit);
+    padBank.armSlot (-1);
+    faderBank.armSlot (-1);
+    knobBank.armSlot (-1);
+}
+
+float YuViGlowAudioProcessor::getFaderValue (int index) const
+{
+    if (index < 0 || index >= numFaders)
+        return 0.0f;
+    return faderValues[(size_t) index].load();
+}
+
+float YuViGlowAudioProcessor::getKnobValue (int index) const
+{
+    if (index < 0 || index >= numKnobs)
+        return 0.0f;
+    return knobValues[(size_t) index].load();
+}
+
+void YuViGlowAudioProcessor::resetAllMappings()
+{
+    padBank.reset();
+    for (auto& v : padVelocities)
+        v.store (0);
+
+    faderBank.reset();
+    for (auto& v : faderValues)
+        v.store (0.0f);
+
+    knobBank.reset();
+    for (auto& v : knobValues)
+        v.store (0.0f);
+}
+
+juce::File YuViGlowAudioProcessor::getPresetFileForCurrentDevice() const
+{
+    auto baseDir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                       .getChildFile ("YuViGlow")
+                       .getChildFile ("presets");
+
+    juce::String fileName;
+    switch (midiDeviceManager.getCurrentCategory())
+    {
+        case DetectedDeviceCategory::code49: fileName = "code49"; break;
+        case DetectedDeviceCategory::mpd226: fileName = "mpd226"; break;
+        case DetectedDeviceCategory::custom: fileName = "custom-" + juce::File::createLegalFileName (getCurrentMidiInputDisplayName()); break;
+    }
+
+    return baseDir.getChildFile (fileName + ".xml");
+}
+
+bool YuViGlowAudioProcessor::saveMappingPresetForCurrentDevice()
+{
+    if (getCurrentMidiInputDisplayName().isEmpty())
+        return false;
+
+    juce::ValueTree preset ("YuViGlowMappingPreset");
+    preset.setProperty ("triggerNote", triggerNoteNumber.load(), nullptr);
+    preset.setProperty ("triggerChannel", triggerMidiChannel.load(), nullptr);
+    preset.setProperty ("gainCc", gainCcNumber.load(), nullptr);
+    preset.setProperty ("gainChannel", gainMidiChannel.load(), nullptr);
+
+    for (int i = 0; i < numPads; ++i)
+        preset.setProperty ("pad" + juce::String (i), padBank.getAssignment (i), nullptr);
+    for (int i = 0; i < numFaders; ++i)
+        preset.setProperty ("fader" + juce::String (i), faderBank.getAssignment (i), nullptr);
+    for (int i = 0; i < numKnobs; ++i)
+        preset.setProperty ("knob" + juce::String (i), knobBank.getAssignment (i), nullptr);
+
+    auto file = getPresetFileForCurrentDevice();
+    file.getParentDirectory().createDirectory();
+
+    if (auto xml = preset.createXml())
+        return xml->writeTo (file);
+
+    return false;
+}
+
+bool YuViGlowAudioProcessor::loadMappingPresetForCurrentDevice()
+{
+    if (getCurrentMidiInputDisplayName().isEmpty())
+        return false;
+
+    auto file = getPresetFileForCurrentDevice();
+    if (! file.existsAsFile())
+        return false;
+
+    std::unique_ptr<juce::XmlElement> xml (juce::XmlDocument::parse (file));
+    if (xml == nullptr)
+        return false;
+
+    auto preset = juce::ValueTree::fromXml (*xml);
+    if (! preset.isValid())
+        return false;
+
+    triggerNoteNumber.store ((int) preset.getProperty ("triggerNote", -1));
+    triggerMidiChannel.store ((int) preset.getProperty ("triggerChannel", -1));
+    gainCcNumber.store ((int) preset.getProperty ("gainCc", -1));
+    gainMidiChannel.store ((int) preset.getProperty ("gainChannel", -1));
+
+    for (int i = 0; i < numPads; ++i)
+        padBank.setAssignment (i, (int) preset.getProperty ("pad" + juce::String (i), -1));
+    for (int i = 0; i < numFaders; ++i)
+        faderBank.setAssignment (i, (int) preset.getProperty ("fader" + juce::String (i), -1));
+    for (int i = 0; i < numKnobs; ++i)
+        knobBank.setAssignment (i, (int) preset.getProperty ("knob" + juce::String (i), -1));
+
+    return true;
+}
+
+void YuViGlowAudioProcessor::processIncomingMidi (const juce::MidiMessage& message)
+{
+    if (message.isNoteOn())
+    {
+        const int note = message.getNoteNumber();
+        const int padIndex = padBank.handleIncomingIdentifier (note, editingMappings.load());
+
+        if (padIndex >= 0)
+        {
+            padVelocities[(size_t) padIndex].store (message.getVelocity());
+            padHitTimestampMs[(size_t) padIndex].store (juce::Time::getMillisecondCounterHiRes());
+        }
+
+        if (learningTrigger.exchange (false))
+        {
+            triggerNoteNumber.store (note);
+            triggerMidiChannel.store (message.getChannel());
+            return;
+        }
+
+        if (note == triggerNoteNumber.load()
+            && (triggerMidiChannel.load() <= 0 || message.getChannel() == triggerMidiChannel.load()))
+        {
+            triggerPlayback();
+        }
+    }
+    else if (message.isController())
+    {
+        const int cc = message.getControllerNumber();
+        const float ccNormalized = message.getControllerValue() / 127.0f;
+        const bool editing = editingMappings.load();
+
+        const int faderSlot = faderBank.handleIncomingIdentifier (cc, editing);
+        if (faderSlot >= 0)
+            faderValues[(size_t) faderSlot].store (ccNormalized);
+
+        const int knobSlot = knobBank.handleIncomingIdentifier (cc, editing);
+        if (knobSlot >= 0)
+            knobValues[(size_t) knobSlot].store (ccNormalized);
+
+        if (learningGain.exchange (false))
+        {
+            gainCcNumber.store (cc);
+            gainMidiChannel.store (message.getChannel());
+            return;
+        }
+
+        if (! gainLocked.load()
+            && cc == gainCcNumber.load()
+            && (gainMidiChannel.load() <= 0 || message.getChannel() == gainMidiChannel.load()))
+        {
+            if (auto* param = apvts.getParameter ("inputGain"))
+                param->setValueNotifyingHost (ccNormalized);
+        }
+    }
+}
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
+{
+    return new YuViGlowAudioProcessor();
+}

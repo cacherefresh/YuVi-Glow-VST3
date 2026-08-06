@@ -1,0 +1,28 @@
+# Open Questions & Assumptions
+
+Things this plan cannot fully resolve without you, real hardware, or real assets.
+
+1. **Exact Code 49 pad/fader MIDI note/CC numbers.** Depends on which onboard control preset is active. Mitigated by MIDI-learn ([02](02-midi-mapping-code49.md)), but the shipped default preset needs a short hardware session with a MIDI monitor to lock in.
+
+2. **Royalty-free sax samples.** I can't generate real audio — this needs either a licensed/CC0 multisampled sax library (candidates: Versilian Studios Community Sample Library, Spitfire LABS — redistribution terms need checking) or a small self-recorded set. Blocking for Phase 1.
+
+3. **Stem-separation model weights redistribution.** Demucs itself is MIT-licensed; need to confirm the specific pretrained checkpoint's terms before deciding download-on-first-launch vs. bundling. Recommendation stands regardless: don't commit large binaries to git ([05](05-stem-separation.md)).
+
+4. **Loop-pad behavior**: momentary vs latched. Assumed **latched** (press to start, press again to stop). Confirm in Phase 2.
+
+5. **Pad playback source**: full mix vs. currently-soloed stem. Assumed **full mix** by default.
+
+6. **Code 49 knob/extra-control inventory** for the mixer's mute/solo controls and faders 5–9 — needs confirming against your actual unit alongside item 1.
+
+7. **Apple Developer Program membership** — not needed until Phase 5 distribution/notarization. Hold off on the $99/yr until then.
+
+8. **PARTIALLY RESOLVED 2026-08-06 — two real CC0 test files now exist** at `assets/audio/royaltyfree/` (sourced from Wikimedia Commons, license verified per-file before download, documented in that folder's `LICENSES.md`): a ~2min ambient track and a 15s clip. These are dev/test assets for exercising file loading, playback, and the planned waveform/cue system ([15](15-waveform-cue-points.md)) — not yet a curated demo pack for end users. Still open: a proper small set of full royalty-free *songs* (with actual musical structure — verses, drops, etc.) suited for a real DJ demo experience, same sourcing constraint as item 2.
+
+9. **TODO: revisit installing the `claude-mem` plugin + relevant Claude Skills for this project**, deferred 2026-08-05. Goal: reduce token usage in future sessions on this repo. Note from research done that day: claude-mem's real storage backend is SQLite (`~/.claude-mem/claude-mem.db`), not an Obsidian vault as originally assumed, and it installs via Claude Code's `/plugin` marketplace flow (machine-level, not repo-scoped) — factor that in when actually setting it up, rather than re-deriving it from scratch.
+
+10. **RESOLVED 2026-08-05 — the 36–51 pad-note-range guess was wrong.** Captured real MIDI from a physical MPD226 via `aseqdump` while pads were pressed across the grid: it sent a scale-quantized two-octave C major run (`60,62,64,65,67,69,71,72,74,76,77,79,81,83,84,86`), not a contiguous 36–51 block — meaning the device's current mode/preset re-maps pad notes to a musical scale rather than the classic flat MPC layout. Fixed by making the pad-touch visualization assign slots **dynamically** (first 16 distinct notes seen, in discovery order) instead of assuming any fixed range — see `PluginProcessor::padNoteAssignment`. This is more robust for any device/mode, at the cost of grid position not necessarily matching physical pad position until all 16 have been struck once.
+    - **New finding to act on later**: the same capture showed the MPD226 sending **channel aftertouch** (continuous pressure, not just strike velocity) while pads are held. "Amount of touch" could use this for live, continuously-updating pressure rather than just a fixed post-strike decay curve — noted as a real enhancement opportunity, not implemented yet (would need per-channel "currently active pad" tracking to attribute channel-wide aftertouch to the right pad slot).
+
+11. **Whether Serato currently lists VST3 or only AU (or both)** for YuVi Glow in its FX-slot plugin picker — flagged from the start ([08](08-serato-integration.md)) as unverified, still unverified as of 2026-08-06. `plan/14-serato-effect-workflow.md` step 0 is the check to run first once on the Mac; the CMake build already produces both formats so no code change is needed either way, just confirm which one actually shows up.
+
+12. **`DJ_INSTRUCTIONS.md` is stale.** It still describes the superseded standalone-app + BlackHole routing plan and not-yet-built features (sax engine, key detection, stem separation) rather than the actual MVP (FX-slot plugin, own file loader, MIDI-mapped pad/knob/fader grid). Needs a rewrite once `plan/14-serato-effect-workflow.md` is verified on the Mac — don't treat its current content as accurate in the meantime.
