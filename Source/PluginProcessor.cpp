@@ -486,13 +486,26 @@ void YuViGlowAudioProcessor::processIncomingMidi (const juce::MidiMessage& messa
         const float ccNormalized = message.getControllerValue() / 127.0f;
         const bool editing = editingMappings.load();
 
+        // Faders and knobs both just send a generic CC number — nothing in
+        // the MIDI protocol tells them apart. If a CC is brand new to both
+        // banks, only let ONE of them claim it per message (fader gets first
+        // look); otherwise a single physical control's first touch could
+        // auto-fill a slot in both banks at once (real bug, found via
+        // hardware testing 2026-08-08 — see plan/11 for the writeup).
+        const bool ccWasUnknownToEitherBank = ! faderBank.isIdentifierAssigned (cc) && ! knobBank.isIdentifierAssigned (cc);
+
         const int faderSlot = faderBank.handleIncomingIdentifier (cc, editing);
         if (faderSlot >= 0)
             faderValues[(size_t) faderSlot].store (ccNormalized);
 
-        const int knobSlot = knobBank.handleIncomingIdentifier (cc, editing);
-        if (knobSlot >= 0)
-            knobValues[(size_t) knobSlot].store (ccNormalized);
+        const bool faderJustClaimedFreshCc = ccWasUnknownToEitherBank && faderSlot >= 0;
+
+        if (! faderJustClaimedFreshCc)
+        {
+            const int knobSlot = knobBank.handleIncomingIdentifier (cc, editing);
+            if (knobSlot >= 0)
+                knobValues[(size_t) knobSlot].store (ccNormalized);
+        }
 
         if (learningGain.exchange (false))
         {

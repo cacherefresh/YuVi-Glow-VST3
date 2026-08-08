@@ -47,6 +47,19 @@ public:
 
     int getLearningSlot() const { return learningSlot.load(); }
 
+    // For cross-bank disambiguation — see PluginProcessor::processIncomingMidi's
+    // fader/knob handling, which uses this to stop a brand-new CC number from
+    // being auto-claimed by two different banks at once (faders and knobs
+    // both just send generic CC messages, so nothing else tells them apart).
+    bool isIdentifierAssigned (int identifier) const
+    {
+        const juce::ScopedLock sl (lock);
+        for (int i = 0; i < numSlots; ++i)
+            if (assignment[(size_t) i] == identifier)
+                return true;
+        return false;
+    }
+
     bool isSlotAssigned (int slotIndex) const
     {
         if (slotIndex < 0 || slotIndex >= numSlots)
