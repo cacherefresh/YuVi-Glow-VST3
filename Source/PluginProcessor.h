@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "MidiDeviceManager.h"
 #include "MidiLearnBank.h"
+#include "TempoDetector.h"
 #include <array>
 
 /**
@@ -123,9 +124,13 @@ public:
     void setEditingMappings (bool shouldEdit);
     bool isEditingMappings() const { return editingMappings.load(); }
 
+    // Pad touch display (not while editing mappings): purple is sustained at
+    // full intensity for as long as the pad is physically held down (velocity-
+    // scaled, no time-based fade); teal only starts once the pad is released,
+    // then fades over ~1800ms. Requires tracking note-off, not just note-on.
     static constexpr int numPads = 16;
-    float getPadTouchAmount (int padIndex) const;      // fast purple flash, ~400ms (display only, not while editing)
-    float getPadAfterglowAmount (int padIndex) const;  // delayed teal afterglow, slow fade (display only, not while editing)
+    float getPadTouchAmount (int padIndex) const;      // purple: velocity-scaled, sustained while held, 0 once released
+    float getPadAfterglowAmount (int padIndex) const;  // teal: 0 while held, fades from full over ~1800ms after release
     bool isPadAssigned (int padIndex) const { return padBank.isSlotAssigned (padIndex); }
     void armLearnPadSlot (int slotIndex) { padBank.armSlot (slotIndex); } // click-to-target; only meaningful while editing
     int getLearningPadSlot() const { return padBank.getLearningSlot(); }
@@ -152,10 +157,37 @@ public:
     bool saveMappingPresetForCurrentDevice();
     bool loadMappingPresetForCurrentDevice();
 
+    // --- Tempo + beat-aligned loop pads (plan/16) ------------------------
+    //
+    // Pads 0-3 can hold a bounded loop region (start/end sample) instead of
+    // just a note assignment. Pressing a pad with a loop region starts it
+    // looping (latched: press the same pad again to stop, matching the
+    // general loop-pad assumption already on record in plan/11 item 4);
+    // pressing a different loop pad switches to that one. Pads without a
+    // loop region are unaffected by any of this — still display-only, same
+    // as before this feature existed.
+    //
+    // Three ways a beat grid gets set, all funnelling through the same
+    // applyBeatGridToPads(): auto-detect (libsonare, once wired up),
+    // manual BPM entry, and tap tempo. Manual/tap both assume beat 1 =
+    // sample 0 and space beats evenly at 60/BPM; auto-detect uses real
+    // detected timestamps instead once integrated.
+    void setManualBpm (double bpm);
+    double getCurrentBpm() const { return currentBpm.load(); }
+
+    void registerTapTempo();
+    void armLearnTapTempo();
+    bool isLearningTapTempo() const { return learningTapTempo.load(); }
+    juce::String getTapTempoDescription() const;
+
+    bool hasPadLoopRegion (int padIndex) const;
+
 private:
     void processIncomingMidi (const juce::MidiMessage& message);
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::File getPresetFileForCurrentDevice() const;
+    void applyBeatGridToPads (const std::vector<double>& beatTimestampsSeconds);
+    void triggerOrStopPadLoop (int padIndex);
 
     juce::AudioFormatManager formatManager;
 
@@ -168,6 +200,27 @@ private:
     std::atomic<bool> gainLocked { false };
     std::atomic<bool> triggerRequested { false };
     std::atomic<bool> stopRequested { false };
+
+    // Bounded-loop playback (pads 0-3, plan/16) — layered on top of the
+    // simple trigger-to-end playback above. When loopActive is set, the
+    // audio callback wraps back to loopStartSample at loopEndSample instead
+    // of stopping; activeLoopPadIndex tracks which pad's press is
+    // responsible, so the *same* pad pressed again stops it (latched).
+    std::atomic<bool> loopActive { false };
+    std::atomic<int> loopStartSample { 0 };
+    std::atomic<int> loopEndSample { -1 };
+    std::atomic<int> activeLoopPadIndex { -1 };
+
+    std::array<std::atomic<int>, (size_t) numPads> padLoopStartSample; // -1 = no loop region set
+    std::array<std::atomic<int>, (size_t) numPads> padLoopEndSample;   // -1 = no loop region set
+
+    std::atomic<double> currentBpm { 0.0 };
+    std::atomic<bool> learningTapTempo { false };
+    std::atomic<int> tapTempoNoteNumber { -1 };
+    std::atomic<int> tapTempoMidiChannel { -1 };
+    std::atomic<double> lastTapTimestampMs { 0.0 };
+    juce::CriticalSection tapTempoLock;
+    std::vector<double> tapIntervalsMs; // guarded by tapTempoLock
 
     juce::SmoothedValue<float> smoothedInputGain;
 
@@ -184,13 +237,20 @@ private:
 
     MidiLearnBank padBank { numPads };
     std::array<std::atomic<int>, (size_t) numPads> padVelocities {};
-    std::array<std::atomic<double>, (size_t) numPads> padHitTimestampMs {};
+    std::array<std::atomic<bool>, (size_t) numPads> padHeld {};
+    std::array<std::atomic<double>, (size_t) numPads> padReleaseTimestampMs {};
 
     MidiLearnBank faderBank { numFaders };
     std::array<std::atomic<float>, (size_t) numFaders> faderValues {};
 
     MidiLearnBank knobBank { numKnobs };
     std::array<std::atomic<float>, (size_t) numKnobs> knobValues {};
+
+    // Declared last so it's destroyed *first* — its destructor waits for any
+    // running analysis job, which must finish (or be safely abandoned)
+    // before tempoDetector/sampleBuffer above it get torn down.
+    std::unique_ptr<TempoDetector> tempoDetector;
+    juce::ThreadPool tempoAnalysisPool { 1 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (YuViGlowAudioProcessor)
 };

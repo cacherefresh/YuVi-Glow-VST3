@@ -52,6 +52,14 @@ private:
     PadGridComponent padGrid;
     ControlPanelComponent controlPanel;
 
+    // Tempo + beat-aligned loop pads (plan/16). Pads 0-3 in the grid above
+    // auto-populate as loop regions once a BPM is known from any of these.
+    juce::Label bpmLabel { {}, "BPM" };
+    juce::TextEditor bpmEditor;
+    juce::TextButton tapTempoButton { "Tap Tempo" };
+    juce::TextButton learnTapTempoButton { "Learn Tap Tempo" };
+    juce::Label tempoStatusLabel;
+
     std::unique_ptr<juce::FileChooser> fileChooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (YuViGlowAudioProcessorEditor)

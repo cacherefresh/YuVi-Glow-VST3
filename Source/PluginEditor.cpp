@@ -3,7 +3,7 @@
 YuViGlowAudioProcessorEditor::YuViGlowAudioProcessorEditor (YuViGlowAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p), padGrid (p), controlPanel (p)
 {
-    setSize (540, 700);
+    setSize (540, 770);
 
     addAndMakeVisible (loadButton);
     loadButton.onClick = [this] { chooseFile(); };
@@ -82,6 +82,28 @@ YuViGlowAudioProcessorEditor::YuViGlowAudioProcessorEditor (YuViGlowAudioProcess
     addAndMakeVisible (mappingStatusLabel);
     mappingStatusLabel.setJustificationType (juce::Justification::centredLeft);
 
+    addAndMakeVisible (bpmLabel);
+    addAndMakeVisible (bpmEditor);
+    bpmEditor.setInputRestrictions (6, "0123456789.");
+    bpmEditor.setText (juce::String (processor.getCurrentBpm(), 1), juce::dontSendNotification);
+    auto applyBpmFromEditor = [this]
+    {
+        const double bpm = bpmEditor.getText().getDoubleValue();
+        if (bpm > 0.0)
+            processor.setManualBpm (bpm);
+    };
+    bpmEditor.onReturnKey = applyBpmFromEditor;
+    bpmEditor.onFocusLost = applyBpmFromEditor;
+
+    addAndMakeVisible (tapTempoButton);
+    tapTempoButton.onClick = [this] { processor.registerTapTempo(); };
+
+    addAndMakeVisible (learnTapTempoButton);
+    learnTapTempoButton.onClick = [this] { processor.armLearnTapTempo(); };
+
+    addAndMakeVisible (tempoStatusLabel);
+    tempoStatusLabel.setJustificationType (juce::Justification::centredLeft);
+
     addAndMakeVisible (padGrid);
     addAndMakeVisible (controlPanel);
 
@@ -158,6 +180,20 @@ void YuViGlowAudioProcessorEditor::resized()
 
     mappingStatusLabel.setBounds (row (20));
 
+    area.removeFromTop (16);
+
+    auto tempoRow = row (28);
+    bpmLabel.setBounds (tempoRow.removeFromLeft (40));
+    bpmEditor.setBounds (tempoRow.removeFromLeft (70));
+    tempoRow.removeFromLeft (8);
+    tapTempoButton.setBounds (tempoRow.removeFromLeft (110));
+    tempoRow.removeFromLeft (8);
+    learnTapTempoButton.setBounds (tempoRow.removeFromLeft (150));
+
+    area.removeFromTop (8);
+
+    tempoStatusLabel.setBounds (row (20));
+
     area.removeFromTop (8);
 
     // Physical MPD226 layout: pads on the left, faders to their right, knobs
@@ -217,6 +253,16 @@ void YuViGlowAudioProcessorEditor::timerCallback()
                                          juce::dontSendNotification);
         }
     }
+
+    if (! bpmEditor.hasKeyboardFocus (false))
+    {
+        const double bpm = processor.getCurrentBpm();
+        bpmEditor.setText (bpm > 0.0 ? juce::String (bpm, 1) : juce::String(), juce::dontSendNotification);
+    }
+
+    tempoStatusLabel.setText (processor.isLearningTapTempo() ? "Waiting for tap tempo button press..."
+                                                               : "Tap tempo control: " + processor.getTapTempoDescription(),
+                               juce::dontSendNotification);
 
     updateMidiDeviceDetection();
 }

@@ -20,3 +20,6 @@ No source changes are needed to target any of the three — `CMakeLists.txt`'s `
 
 ## Test assets
 `assets/audio/royaltyfree/` has two CC0 audio files for testing file loading/playback (not just MIDI mapping) — see that folder's `LICENSES.md`.
+
+## License
+[AGPL-3.0](LICENSE) — chosen because this project depends on JUCE, which requires AGPLv3 or a paid commercial license (see `plan/17-project-licensing.md` for the full reasoning). Third-party attribution for everything this project uses: [CREDITS.md](CREDITS.md).

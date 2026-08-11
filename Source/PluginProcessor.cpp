@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "LibsonareTempoDetector.h"
 
 #include <cmath>
 
@@ -11,6 +12,12 @@ YuViGlowAudioProcessor::YuViGlowAudioProcessor()
       midiDeviceManager ([this] (const juce::MidiMessage& message) { processIncomingMidi (message); })
 {
     formatManager.registerBasicFormats();
+    for (auto& v : padLoopStartSample)
+        v.store (-1);
+    for (auto& v : padLoopEndSample)
+        v.store (-1);
+
+    tempoDetector = std::make_unique<LibsonareTempoDetector>();
 }
 
 YuViGlowAudioProcessor::~YuViGlowAudioProcessor()
@@ -85,38 +92,56 @@ void YuViGlowAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     {
         const juce::ScopedLock sl (bufferLock);
         const int bufferLength = sampleBuffer.getNumSamples();
-        const int pos = playbackPosition.load();
+        const int sampleChannels = sampleBuffer.getNumChannels();
+        const bool looping = loopActive.load();
+        // Non-looping playback plays to the end of the file; looping
+        // playback is bounded by loopEndSample (clamped to the file length
+        // in case the loop region was computed against a different file).
+        const int playEnd = looping ? juce::jmin (loopEndSample.load(), bufferLength) : bufferLength;
 
-        if (bufferLength > 0 && pos >= 0 && pos < bufferLength)
+        int pos = playbackPosition.load();
+        int destOffset = 0;
+        int remaining = numSamples;
+
+        // A while-loop rather than a single copy so a loop region shorter
+        // than one audio block (very high BPM, very short blocks) still
+        // wraps correctly within a single processBlock call instead of
+        // just truncating.
+        while (remaining > 0 && bufferLength > 0 && pos >= 0 && pos < playEnd)
         {
-            const int samplesToCopy = juce::jmin (numSamples, bufferLength - pos);
-            const int sampleChannels = sampleBuffer.getNumChannels();
+            const int samplesToCopy = juce::jmin (remaining, playEnd - pos);
 
             for (int ch = 0; ch < numChannels; ++ch)
             {
                 const int srcCh = juce::jmin (ch, sampleChannels - 1);
                 const float* src = sampleBuffer.getReadPointer (srcCh, pos);
-                float* dst = buffer.getWritePointer (ch);
+                float* dst = buffer.getWritePointer (ch) + destOffset;
 
                 for (int i = 0; i < samplesToCopy; ++i)
                     dst[i] += src[i];
             }
 
-            const int newPos = pos + samplesToCopy;
-            if (newPos >= bufferLength)
+            pos += samplesToCopy;
+            destOffset += samplesToCopy;
+            remaining -= samplesToCopy;
+
+            if (pos >= playEnd)
             {
-                playing.store (false);
-                playbackPosition.store (-1);
-            }
-            else
-            {
-                playbackPosition.store (newPos);
+                if (looping)
+                    pos = juce::jmax (0, loopStartSample.load());
+                else
+                    break;
             }
         }
-        else
+
+        if (! looping && pos >= playEnd)
         {
             playing.store (false);
             playbackPosition.store (-1);
+        }
+        else
+        {
+            playbackPosition.store (pos);
         }
     }
 }
@@ -136,6 +161,8 @@ void YuViGlowAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     state.setProperty ("gainChannel", gainMidiChannel.load(), nullptr);
     state.setProperty ("gainLocked", gainLocked.load(), nullptr);
     state.setProperty ("midiDeviceName", getCurrentMidiInputDisplayName(), nullptr);
+    state.setProperty ("tapTempoNote", tapTempoNoteNumber.load(), nullptr);
+    state.setProperty ("tapTempoChannel", tapTempoMidiChannel.load(), nullptr);
 
     for (int i = 0; i < numPads; ++i)
         state.setProperty ("pad" + juce::String (i), padBank.getAssignment (i), nullptr);
@@ -170,6 +197,8 @@ void YuViGlowAudioProcessor::setStateInformation (const void* data, int sizeInBy
         apvts.replaceState (paramsTree);
 
     setGainLocked ((bool) state.getProperty ("gainLocked", false));
+    tapTempoNoteNumber.store ((int) state.getProperty ("tapTempoNote", -1));
+    tapTempoMidiChannel.store ((int) state.getProperty ("tapTempoChannel", -1));
 
     for (int i = 0; i < numPads; ++i)
         padBank.setAssignment (i, (int) state.getProperty ("pad" + juce::String (i), -1));
@@ -233,6 +262,31 @@ void YuViGlowAudioProcessor::loadAudioFile (const juce::File& file)
     }
 
     stopPlayback();
+
+    // Auto-detect runs off the audio/message thread — analysis can take a
+    // real amount of time and must never block either (AGENTS.md's
+    // audio-thread-discipline rule). Copies the buffer under lock (fast)
+    // rather than holding the lock through the analysis itself (slow).
+    tempoAnalysisPool.addJob ([this]
+    {
+        juce::AudioBuffer<float> bufferCopy;
+        double sr = 44100.0;
+
+        {
+            const juce::ScopedLock sl (bufferLock);
+            if (sampleBuffer.getNumSamples() <= 0)
+                return;
+            bufferCopy = sampleBuffer;
+            sr = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
+        }
+
+        if (tempoDetector == nullptr)
+            return;
+
+        const auto beats = tempoDetector->detectBeatTimestamps (bufferCopy, sr);
+        if (! beats.empty())
+            applyBeatGridToPads (beats);
+    });
 }
 
 juce::String YuViGlowAudioProcessor::getLoadedFileName() const
@@ -250,12 +304,121 @@ bool YuViGlowAudioProcessor::isFileLoaded() const
 void YuViGlowAudioProcessor::triggerPlayback()
 {
     if (isFileLoaded())
+    {
+        loopActive.store (false);
+        activeLoopPadIndex.store (-1);
         triggerRequested.store (true);
+    }
 }
 
 void YuViGlowAudioProcessor::stopPlayback()
 {
     stopRequested.store (true);
+    loopActive.store (false);
+    activeLoopPadIndex.store (-1);
+}
+
+bool YuViGlowAudioProcessor::hasPadLoopRegion (int padIndex) const
+{
+    if (padIndex < 0 || padIndex >= numPads)
+        return false;
+    return padLoopStartSample[(size_t) padIndex].load() >= 0
+        && padLoopEndSample[(size_t) padIndex].load() > padLoopStartSample[(size_t) padIndex].load();
+}
+
+void YuViGlowAudioProcessor::triggerOrStopPadLoop (int padIndex)
+{
+    if (! hasPadLoopRegion (padIndex))
+        return;
+
+    if (activeLoopPadIndex.load() == padIndex)
+    {
+        // Same pad pressed again while its loop is playing — latched stop.
+        stopPlayback();
+        return;
+    }
+
+    const int start = padLoopStartSample[(size_t) padIndex].load();
+    const int end = padLoopEndSample[(size_t) padIndex].load();
+
+    activeLoopPadIndex.store (padIndex);
+    loopStartSample.store (start);
+    loopEndSample.store (end);
+    loopActive.store (true);
+    playbackPosition.store (start);
+    playing.store (true);
+    stopRequested.store (false);
+    triggerRequested.store (false);
+}
+
+void YuViGlowAudioProcessor::applyBeatGridToPads (const std::vector<double>& beatTimestampsSeconds)
+{
+    const double sr = getSampleRate() > 0.0 ? getSampleRate() : 44100.0;
+
+    for (int pad = 0; pad < 4 && pad + 1 < (int) beatTimestampsSeconds.size(); ++pad)
+    {
+        const int startSample = (int) std::lround (beatTimestampsSeconds[(size_t) pad] * sr);
+        const int endSample = (int) std::lround (beatTimestampsSeconds[(size_t) pad + 1] * sr);
+
+        if (endSample > startSample)
+        {
+            padLoopStartSample[(size_t) pad].store (startSample);
+            padLoopEndSample[(size_t) pad].store (endSample);
+        }
+    }
+}
+
+void YuViGlowAudioProcessor::setManualBpm (double bpm)
+{
+    if (bpm < 20.0 || bpm > 400.0)
+        return;
+
+    currentBpm.store (bpm);
+
+    const double beatSeconds = 60.0 / bpm;
+    std::vector<double> beats;
+    for (int i = 0; i < 5; ++i)
+        beats.push_back ((double) i * beatSeconds);
+
+    applyBeatGridToPads (beats);
+}
+
+void YuViGlowAudioProcessor::registerTapTempo()
+{
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    const double last = lastTapTimestampMs.exchange (now);
+
+    if (last <= 0.0)
+        return;
+
+    const double interval = now - last;
+    if (interval < 200.0 || interval > 2000.0) // outside ~30-300 BPM: treat as a fresh tap sequence, not a tempo
+        return;
+
+    double averageMs = 0.0;
+    {
+        const juce::ScopedLock sl (tapTempoLock);
+        tapIntervalsMs.push_back (interval);
+        if (tapIntervalsMs.size() > 4)
+            tapIntervalsMs.erase (tapIntervalsMs.begin());
+
+        double sum = 0.0;
+        for (double v : tapIntervalsMs)
+            sum += v;
+        averageMs = sum / (double) tapIntervalsMs.size();
+    }
+
+    setManualBpm (60000.0 / averageMs);
+}
+
+void YuViGlowAudioProcessor::armLearnTapTempo() { learningTapTempo.store (true); }
+
+juce::String YuViGlowAudioProcessor::getTapTempoDescription() const
+{
+    const int note = tapTempoNoteNumber.load();
+    if (note < 0)
+        return "Not learned";
+    return "Note " + juce::String (note) + " (ch " + juce::String (tapTempoMidiChannel.load()) + ")";
 }
 
 void YuViGlowAudioProcessor::setGainLocked (bool shouldLock)
@@ -309,15 +472,17 @@ float YuViGlowAudioProcessor::getPadTouchAmount (int padIndex) const
     if (padIndex < 0 || padIndex >= numPads)
         return 0.0f;
 
+    if (! padHeld[(size_t) padIndex].load())
+        return 0.0f;
+
     const int velocity = padVelocities[(size_t) padIndex].load();
     if (velocity <= 0)
         return 0.0f;
 
-    constexpr double fadeMs = 400.0;
-    const double elapsed = juce::Time::getMillisecondCounterHiRes() - padHitTimestampMs[(size_t) padIndex].load();
-    const double fade = juce::jlimit (0.0, 1.0, 1.0 - (elapsed / fadeMs));
-
-    return (float) (fade * (velocity / 127.0));
+    // Sustained, not time-decayed — full purple for as long as the pad is
+    // physically held down, matching a real pad's sustain rather than a
+    // fixed-length flash.
+    return (float) (velocity / 127.0);
 }
 
 float YuViGlowAudioProcessor::getPadAfterglowAmount (int padIndex) const
@@ -325,19 +490,17 @@ float YuViGlowAudioProcessor::getPadAfterglowAmount (int padIndex) const
     if (padIndex < 0 || padIndex >= numPads)
         return 0.0f;
 
+    if (padHeld[(size_t) padIndex].load())
+        return 0.0f; // teal only begins once the pad is released
+
     const int velocity = padVelocities[(size_t) padIndex].load();
     if (velocity <= 0)
         return 0.0f;
 
-    constexpr double delayMs = 150.0;  // waits for the purple flash to lead
-    constexpr double fadeMs = 1800.0;  // then lingers much longer than the flash
+    constexpr double fadeMs = 1800.0;
+    const double elapsed = juce::Time::getMillisecondCounterHiRes() - padReleaseTimestampMs[(size_t) padIndex].load();
+    const double fade = juce::jlimit (0.0, 1.0, 1.0 - (elapsed / fadeMs));
 
-    const double elapsed = juce::Time::getMillisecondCounterHiRes() - padHitTimestampMs[(size_t) padIndex].load();
-    const double sinceDelay = elapsed - delayMs;
-    if (sinceDelay < 0.0)
-        return 0.0f;
-
-    const double fade = juce::jlimit (0.0, 1.0, 1.0 - (sinceDelay / fadeMs));
     return (float) (fade * (velocity / 127.0));
 }
 
@@ -368,6 +531,10 @@ void YuViGlowAudioProcessor::resetAllMappings()
     padBank.reset();
     for (auto& v : padVelocities)
         v.store (0);
+    for (auto& v : padHeld)
+        v.store (false);
+    for (auto& v : padReleaseTimestampMs)
+        v.store (0.0);
 
     faderBank.reset();
     for (auto& v : faderValues)
@@ -405,6 +572,8 @@ bool YuViGlowAudioProcessor::saveMappingPresetForCurrentDevice()
     preset.setProperty ("triggerChannel", triggerMidiChannel.load(), nullptr);
     preset.setProperty ("gainCc", gainCcNumber.load(), nullptr);
     preset.setProperty ("gainChannel", gainMidiChannel.load(), nullptr);
+    preset.setProperty ("tapTempoNote", tapTempoNoteNumber.load(), nullptr);
+    preset.setProperty ("tapTempoChannel", tapTempoMidiChannel.load(), nullptr);
 
     for (int i = 0; i < numPads; ++i)
         preset.setProperty ("pad" + juce::String (i), padBank.getAssignment (i), nullptr);
@@ -443,6 +612,8 @@ bool YuViGlowAudioProcessor::loadMappingPresetForCurrentDevice()
     triggerMidiChannel.store ((int) preset.getProperty ("triggerChannel", -1));
     gainCcNumber.store ((int) preset.getProperty ("gainCc", -1));
     gainMidiChannel.store ((int) preset.getProperty ("gainChannel", -1));
+    tapTempoNoteNumber.store ((int) preset.getProperty ("tapTempoNote", -1));
+    tapTempoMidiChannel.store ((int) preset.getProperty ("tapTempoChannel", -1));
 
     for (int i = 0; i < numPads; ++i)
         padBank.setAssignment (i, (int) preset.getProperty ("pad" + juce::String (i), -1));
@@ -464,7 +635,10 @@ void YuViGlowAudioProcessor::processIncomingMidi (const juce::MidiMessage& messa
         if (padIndex >= 0)
         {
             padVelocities[(size_t) padIndex].store (message.getVelocity());
-            padHitTimestampMs[(size_t) padIndex].store (juce::Time::getMillisecondCounterHiRes());
+            padHeld[(size_t) padIndex].store (true);
+
+            if (! editingMappings.load())
+                triggerOrStopPadLoop (padIndex);
         }
 
         if (learningTrigger.exchange (false))
@@ -478,6 +652,30 @@ void YuViGlowAudioProcessor::processIncomingMidi (const juce::MidiMessage& messa
             && (triggerMidiChannel.load() <= 0 || message.getChannel() == triggerMidiChannel.load()))
         {
             triggerPlayback();
+        }
+
+        if (learningTapTempo.exchange (false))
+        {
+            tapTempoNoteNumber.store (note);
+            tapTempoMidiChannel.store (message.getChannel());
+            return;
+        }
+
+        if (note == tapTempoNoteNumber.load()
+            && (tapTempoMidiChannel.load() <= 0 || message.getChannel() == tapTempoMidiChannel.load()))
+        {
+            registerTapTempo();
+        }
+    }
+    else if (message.isNoteOff())
+    {
+        // Read-only lookup (findSlotForIdentifier, not handleIncomingIdentifier)
+        // — a release should never trigger a mapping-editor auto-fill.
+        const int padIndex = padBank.findSlotForIdentifier (message.getNoteNumber());
+        if (padIndex >= 0)
+        {
+            padHeld[(size_t) padIndex].store (false);
+            padReleaseTimestampMs[(size_t) padIndex].store (juce::Time::getMillisecondCounterHiRes());
         }
     }
     else if (message.isController())

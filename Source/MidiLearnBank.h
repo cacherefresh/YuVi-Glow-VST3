@@ -60,6 +60,18 @@ public:
         return false;
     }
 
+    // Read-only lookup, no learn-mode side effects — for messages that
+    // should never assign anything (e.g. note-off, which only needs to know
+    // "which pad was this?" to clear its held state).
+    int findSlotForIdentifier (int identifier) const
+    {
+        const juce::ScopedLock sl (lock);
+        for (int i = 0; i < numSlots; ++i)
+            if (assignment[(size_t) i] == identifier)
+                return i;
+        return -1;
+    }
+
     bool isSlotAssigned (int slotIndex) const
     {
         if (slotIndex < 0 || slotIndex >= numSlots)

@@ -19,6 +19,37 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
+# libsonare — BPM/beat detection (plan/16-beat-detection-and-loop-pads.md).
+# Apache-2.0, chosen specifically over more established GPL beat-tracking
+# libraries (BTrack/aubio/Gist) to stay AGPL-3.0-compatible (plan/17). It's
+# a large multi-subsystem project (mastering/mixing/FX/etc.) — we only need
+# beat/BPM detection (sonare_core's C API), so every unrelated subsystem is
+# disabled here to keep the build lean. sonare_core calls into sonare_rt for
+# its DSP primitives, but CMake's own dependency ordering puts sonare_rt
+# *before* sonare_core on the link line (the opposite of what a plain static
+# link needs) — wrapped in LINK_GROUP:RESCAN below so the linker retries
+# until both resolve, regardless of order. See
+# Source/LibsonareTempoDetector.cpp for the actual API calls used.
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(BUILD_CLI OFF CACHE BOOL "" FORCE)
+set(BUILD_BENCH OFF CACHE BOOL "" FORCE)
+set(BUILD_MASTERING OFF CACHE BOOL "" FORCE)
+set(BUILD_MIXING OFF CACHE BOOL "" FORCE)
+set(BUILD_GRAPH OFF CACHE BOOL "" FORCE)
+set(BUILD_FX OFF CACHE BOOL "" FORCE)
+set(BUILD_ACOUSTIC_SIM OFF CACHE BOOL "" FORCE)
+set(BUILD_VOICE_CHANGER OFF CACHE BOOL "" FORCE)
+set(BUILD_ASSIST OFF CACHE BOOL "" FORCE)
+set(BUILD_WASM OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(
+    libsonare
+    GIT_REPOSITORY https://github.com/libraz/libsonare.git
+    GIT_TAG v1.6.0
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(libsonare)
+
 set(YUVIGLOW_FORMATS VST3 Standalone)
 if(APPLE)
     list(APPEND YUVIGLOW_FORMATS AU)
@@ -46,6 +77,7 @@ target_sources(YuViGlow
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/MidiDeviceManager.cpp
+        Source/LibsonareTempoDetector.cpp
 )
 
 target_compile_definitions(YuViGlow
@@ -59,6 +91,7 @@ target_link_libraries(YuViGlow
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors
+        "$<LINK_GROUP:RESCAN,sonare_core,sonare_rt>"
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

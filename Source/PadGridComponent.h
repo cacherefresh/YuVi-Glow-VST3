@@ -4,9 +4,12 @@
 #include "PluginProcessor.h"
 
 // 4x4 grid of the 16 pads. Normally shows live touch feedback: a purple
-// glow (immediate, fast fade) plus a teal afterglow that lags behind it
-// (delayed onset, slow fade) — see YuViGlowAudioProcessor::getPadTouchAmount()
-// / getPadAfterglowAmount(). While the processor's global mapping editor is
+// glow that's sustained (not time-decayed) for as long as the pad is
+// physically held down, then a teal afterglow that begins the instant the
+// pad is released and fades over ~1800ms — see
+// YuViGlowAudioProcessor::getPadTouchAmount() / getPadAfterglowAmount().
+// Requires the processor to track note-off, not just note-on, per pad.
+// While the processor's global mapping editor is
 // active (YuViGlowAudioProcessor::isEditingMappings()), this switches to a
 // flat red/yellow/green assignment-state display instead — red unassigned,
 // yellow the slot currently armed for learning, green already assigned —
