@@ -1,6 +1,8 @@
 # Beat Detection + Auto-Sliced Loop Pads
 
-Plan only, 2026-08-08 — no code written yet. Extends [15-waveform-cue-points.md](15-waveform-cue-points.md): the first 4 pads (slots 0-3, bottom-left row) auto-populate as beat-aligned loop regions when a file is loaded — pad 1 = beat 1→2, pad 2 = beat 2→3, pad 3 = beat 3→4, pad 4 = beat 4→5 — sourced from three tempo inputs (auto-detect, manual entry, tap tempo), all confirmed with the user before writing this.
+**Status: [DEVELOPED]** — built and verified (`TempoDetector`/`LibsonareTempoDetector`, manual BPM entry, tap tempo, auto-sliced loop pads 0-3, all rebuilt and screenshot/hardware-tested). Not fully closed out: capturing the MPD226's real hardware tap-tempo button via `aseqdump` and setting it as the shipped default is still an outstanding to-do.
+
+Extends [15-waveform-cue-points.md](15-waveform-cue-points.md): the first 4 pads (slots 0-3, bottom-left row) auto-populate as beat-aligned loop regions when a file is loaded — pad 1 = beat 1→2, pad 2 = beat 2→3, pad 3 = beat 3→4, pad 4 = beat 4→5 — sourced from three tempo inputs (auto-detect, manual entry, tap tempo), all confirmed with the user before writing this.
 
 ## Tempo source #1: auto-detect via `libsonare`
 Researched the open-source landscape before picking anything, since a copyleft dependency would have real licensing consequences for the whole project:
@@ -40,7 +42,7 @@ A BPM text field in the UI. When used, beat positions are computed (not detected
 ## Tempo source #3: tap tempo, including MPD226 hardware button
 Standard tap-tempo algorithm: each tap records a timestamp; BPM = `60 / average(last N inter-tap intervals)` (N=4 is a common default). Same beat-position computation as manual entry (beat 1 = sample 0 assumption) once a stable BPM emerges from taps.
 
-**Tap tempo is a new MIDI-learnable binding**, same pattern as the trigger pad / gain fader / pad-knob-fader banks already built — a "Learn Tap Tempo" capture (or folded into the existing "Edit MIDI Mapping" system as a fifth bank). The user specifically wants the **MPD226's own hardware tap-tempo button** (visible in earlier `aconnect` output as part of the "MPD226 Remote" port, exact note/CC still unverified — needs a real hardware capture same as everything else in this project, not guessed) bound to this **by default**, meaning: included in the device-keyed mapping presets (`plan/12`'s "Save as Default for Device") alongside pads/knobs/faders, so it's captured once and restored automatically.
+**Tap tempo is a new MIDI-learnable binding**, same pattern as the trigger pad / gain fader / pad-knob-fader banks already built — a "Learn Tap Tempo" capture (or folded into the existing "Edit MIDI Mapping" system as a fifth bank). The user specifically wants the **MPD226's own hardware tap-tempo button** (visible in earlier `aconnect` output as part of the "MPD226 Remote" port, exact note/CC still unverified — needs a real hardware capture same as everything else in this project, not guessed) bound to this **by default**, meaning: included in the device-keyed mapping presets (`plan/issues/12`'s "Save as Default for Device") alongside pads/knobs/faders, so it's captured once and restored automatically.
 
 ## Computing the 4 pad loop regions
 Given a beat-timestamp source (real detected array from libsonare, or computed from manual/tap BPM):
@@ -51,10 +53,10 @@ Given a beat-timestamp source (real detected array from libsonare, or computed f
 
 ## New playback mode needed: bounded loop region
 Today's playback (`triggerPlayback()`) only does "play from a fixed start to the end of the file." This feature needs a second mode: "loop continuously between `[start, end)` until stopped." Proposed:
-- Extend the pad data model: each pad slot gets an optional loop region (`start`, `end` in samples) in addition to its existing MIDI note assignment — mirrors `plan/15`'s cue-position idea, just bounded instead of open-ended.
+- Extend the pad data model: each pad slot gets an optional loop region (`start`, `end` in samples) in addition to its existing MIDI note assignment — mirrors `plan/issues/15`'s cue-position idea, just bounded instead of open-ended.
 - Pads 0-3 specifically get **auto-populated** with beat-aligned loop regions when a file loads (from whichever tempo source is freshest) — but only if not already manually set, so a deliberate user edit is never silently clobbered by a later re-detection.
-- Loop behavior while held: proposed **latched** (press to start looping, press again to stop) — matches the existing assumption already on record in `plan/11` item 4 for the general loop-pad concept, carried over here rather than re-litigated.
-- Pads 4-15 are unaffected — they keep today's simple trigger-to-end behavior (or whatever `plan/15`'s cue-point system lands on for them).
+- Loop behavior while held: proposed **latched** (press to start looping, press again to stop) — matches the existing assumption already on record in `plan/issues/11` item 4 for the general loop-pad concept, carried over here rather than re-litigated.
+- Pads 4-15 are unaffected — they keep today's simple trigger-to-end behavior (or whatever `plan/issues/15`'s cue-point system lands on for them).
 
 ## Open items to confirm before/while building
 1. **Exact `libsonare` CMake target name and a pinned version tag** — needs inspecting the actual `CMakeLists.txt` at implementation time (docs didn't show this).

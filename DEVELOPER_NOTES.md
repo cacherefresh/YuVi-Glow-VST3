@@ -1,6 +1,6 @@
 # Developer Notes
 
-Quick command reference for building/running this repo locally on Ubuntu. For the fuller writeup (why Linux is a supported dev target, what it doesn't cover, macOS specifics) see [plan/13-linux-dev-testing.md](plan/13-linux-dev-testing.md) and [plan/09-macos-build-targets.md](plan/09-macos-build-targets.md). Repo conventions/ground rules live in [AGENTS.md](AGENTS.md).
+Quick command reference for building/running this repo locally on Ubuntu. For the fuller writeup (why Linux is a supported dev target, what it doesn't cover, macOS specifics) see [plan/issues/13-linux-dev-testing.md](plan/issues/13-linux-dev-testing.md) and [plan/issues/09-macos-build-targets.md](plan/issues/09-macos-build-targets.md). Repo conventions/ground rules live in [AGENTS.md](AGENTS.md).
 
 ## One-time setup (Ubuntu)
 JUCE's GUI module needs these dev headers to build at all on Linux — requires `sudo`, so it's a manual step:
@@ -57,4 +57,4 @@ build/YuViGlow_artefacts/Debug/VST3/
 `cmake --build` auto-installs it to `~/.vst3/YuVi Glow.vst3` — load it in any Linux VST3 host (e.g. REAPER for Linux). For everyday iteration, Standalone is simpler.
 
 ## What this doesn't cover
-Real Serato loading, AU format, and macOS CoreMIDI/CoreAudio-specific behavior are all Mac-only — see `plan/09-macos-build-targets.md` for that side.
+Real Serato loading, AU format, and macOS CoreMIDI/CoreAudio-specific behavior are all Mac-only — see `plan/issues/09-macos-build-targets.md` for that side.

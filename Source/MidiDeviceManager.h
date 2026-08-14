@@ -37,7 +37,7 @@ public:
 
     // Classifies whatever's currently plugged in: at most one Code 49 entry,
     // one MPD226 entry, and one "Custom" entry standing in for the first
-    // unrecognized device found (see plan/12-mvp-v0.md for why only one).
+    // unrecognized device found (see plan/issues/12-mvp-v0.md for why only one).
     std::vector<DetectedDevice> getClassifiedInputs() const;
 
     // Opens every port belonging to this device simultaneously, so a pad on

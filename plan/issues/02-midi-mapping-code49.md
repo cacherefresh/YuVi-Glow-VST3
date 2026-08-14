@@ -1,5 +1,7 @@
 # Code 49 MIDI Mapping
 
+**Status: [PLANNED]** — the specific mapping table and `MidiRouter`/`SaxSynthEngine`/joystick targets below were never built. The core *principle* (MIDI-learn, never hardcoded note/CC numbers) was carried into the actual MVP, just via a different, simpler mechanism — see `Source/MidiLearnBank.h` and `plan/issues/12-mvp-v0.md`'s "Unified mapping editor" section.
+
 **Everything below is a default preset, not a hardcoded assumption.** Exact note/CC numbers depend on the Code 49's currently-loaded control preset (it ships with several, user-switchable on the hardware itself), so the engine reads all physical control input through `MidiRouter`'s learn layer. Nothing in `Core` references a raw note/CC number directly.
 
 ## Physical surface → engine mapping (default)

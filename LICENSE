@@ -6,7 +6,7 @@ This file has two parts: a preamble stating the values behind this project
 warranty terms), followed by the actual operative license, the GNU Affero
 General Public License version 3 (AGPL-3.0).
 
-See plan/17-project-licensing.md in this repository for why AGPL-3.0 was
+See plan/issues/17-project-licensing.md in this repository for why AGPL-3.0 was
 chosen (short version: this project depends on JUCE, which requires either
 AGPL-3.0 or a paid commercial JUCE license — AGPL-3.0 is the fully
 free/open-source path). See CREDITS.md for attribution of every third-party
@@ -63,7 +63,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 The full text of the GNU Affero General Public License, version 3, is
 the canonical document at https://www.gnu.org/licenses/agpl-3.0.txt —
 this repository's copy should be verified against that source before
-being relied on for anything consequential (see plan/17-project-licensing.md).
+being relied on for anything consequential (see plan/issues/17-project-licensing.md).
 It is not reproduced inline in this file to avoid the risk of an
 uncatchable transcription error in a legal document; fetch the canonical
 text directly from the URL above when a full local copy is needed.

@@ -19,9 +19,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-# libsonare — BPM/beat detection (plan/16-beat-detection-and-loop-pads.md).
+# libsonare — BPM/beat detection (plan/issues/16-beat-detection-and-loop-pads.md).
 # Apache-2.0, chosen specifically over more established GPL beat-tracking
-# libraries (BTrack/aubio/Gist) to stay AGPL-3.0-compatible (plan/17). It's
+# libraries (BTrack/aubio/Gist) to stay AGPL-3.0-compatible (plan/issues/17). It's
 # a large multi-subsystem project (mastering/mixing/FX/etc.) — we only need
 # beat/BPM detection (sonare_core's C API), so every unrelated subsystem is
 # disabled here to keep the build lean. sonare_core calls into sonare_rt for

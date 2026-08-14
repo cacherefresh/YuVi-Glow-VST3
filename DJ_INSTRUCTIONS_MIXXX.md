@@ -1,6 +1,6 @@
 # YuVi Glow — Using It in Mixxx
 
-**Status: DRAFT**, matches the current build (`plan/12-mvp-v0.md`). No coding knowledge needed for anything below.
+**Status: DRAFT**, matches the current build (`plan/issues/12-mvp-v0.md`). No coding knowledge needed for anything below.
 
 ## What's Mixxx?
 [Mixxx](https://mixxx.org) is a free, open-source DJ application — similar idea to Serato, but free and available on Linux, Mac, and Windows. Unlike Serato, Mixxx directly supports loading VST3 plugins as effects, which makes it the easiest way to try YuVi Glow without needing a Mac at all.
@@ -35,7 +35,7 @@ Same as the Serato version — see [DJ_INSTRUCTIONS_SERATO.md](DJ_INSTRUCTIONS_S
 1. Open the plugin's own window from the effect slot.
 2. Pick your MIDI controller from the dropdown.
 3. Load a sound file to trigger.
-4. "Edit MIDI Mapping" to capture your pads/knobs/faders (touch each one, or click to target a specific one).
+4. Click the sliders icon (top-right) to expand the MIDI Controller Settings section, then click "Edit MIDI Mapping" to capture your pads/knobs/faders (touch each one, or click to target a specific one) — the section stays expanded while you do this.
 5. "Save as Default for Device" so you never have to redo it.
 
 ## One thing to check

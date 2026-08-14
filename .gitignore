@@ -67,3 +67,7 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Non-free test assets — never commit, see assets/WARNING_NON_FREE/README_WARNING_NON_FREE.md
+assets/WARNING_NON_FREE/*
+!assets/WARNING_NON_FREE/README_WARNING_NON_FREE.md

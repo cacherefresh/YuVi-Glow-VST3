@@ -1,5 +1,7 @@
 # MVP v0 — Scope (supersedes Phase 1 for now)
 
+**Status: [COMPLETED]** — everything described in this doc is built and has been verified against real hardware (MIDI-learn, unified mapping editor, per-device presets, pad/knob/fader visualization, build targets). Newer features layer on top of this (`plan/issues/16`, `plan/issues/18`) without changing anything here.
+
 Reprioritized 2026-08-05 based on direct instruction: build the smallest real, loadable-in-Serato thing first, before key detection or the sax engine.
 
 ## Why this MVP doesn't hit the Serato-instrument wall
@@ -63,8 +65,8 @@ Added 2026-08-06. **"Save as Default for Device"** / **"Load Default for Device"
 
 ## Build targets and documentation (2026-08-06)
 Formalized as one-codebase-three-targets, matching what was already technically true:
-- **Standalone** (Linux + macOS) — dev/test loop, see [STANDALONE_INSTRUCTIONS.md](../STANDALONE_INSTRUCTIONS.md) and `scripts/linux_dev_env.sh`.
-- **VST3** (all platforms) — loads in Mixxx (a real, free, cross-platform DJ app that hosts VST3 effects directly, unlike Serato) or any other VST3 host, see [DJ_INSTRUCTIONS_MIXXX.md](../DJ_INSTRUCTIONS_MIXXX.md).
-- **AU** (macOS only) — the format Serato likely actually requires (unverified — see [14-serato-effect-workflow.md](14-serato-effect-workflow.md) step 0), see [DJ_INSTRUCTIONS_SERATO.md](../DJ_INSTRUCTIONS_SERATO.md) (renamed from the earlier `DJ_INSTRUCTIONS.md`, and rewritten to match this MVP instead of the superseded standalone+BlackHole plan).
+- **Standalone** (Linux + macOS) — dev/test loop, see [STANDALONE_INSTRUCTIONS.md](../../STANDALONE_INSTRUCTIONS.md) and `scripts/linux_dev_env.sh`.
+- **VST3** (all platforms) — loads in Mixxx (a real, free, cross-platform DJ app that hosts VST3 effects directly, unlike Serato) or any other VST3 host, see [DJ_INSTRUCTIONS_MIXXX.md](../../DJ_INSTRUCTIONS_MIXXX.md).
+- **AU** (macOS only) — the format Serato likely actually requires (unverified — see [14-serato-effect-workflow.md](14-serato-effect-workflow.md) step 0), see [DJ_INSTRUCTIONS_SERATO.md](../../DJ_INSTRUCTIONS_SERATO.md) (renamed from the earlier `DJ_INSTRUCTIONS.md`, and rewritten to match this MVP instead of the superseded standalone+BlackHole plan).
 
-Mixxx specifically matters because it closes most of the "can't verify FX-slot hosting without a Mac" gap noted in `plan/14` — it's a real DJ app, on Linux, hosting the exact plugin format Serato would also load.
+Mixxx specifically matters because it closes most of the "can't verify FX-slot hosting without a Mac" gap noted in `plan/issues/14` — it's a real DJ app, on Linux, hosting the exact plugin format Serato would also load.

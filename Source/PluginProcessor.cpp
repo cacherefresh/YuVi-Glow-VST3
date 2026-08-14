@@ -31,7 +31,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout YuViGlowAudioProcessor::crea
 
     params.push_back (std::make_unique<juce::AudioParameterFloat> (
         juce::ParameterID { "inputGain", 1 },
-        "Input Gain",
+        "VST MASTER Gain",
         juce::NormalisableRange<float> (0.0f, 2.0f, 0.001f),
         1.0f));
 
@@ -329,7 +329,17 @@ bool YuViGlowAudioProcessor::hasPadLoopRegion (int padIndex) const
 void YuViGlowAudioProcessor::triggerOrStopPadLoop (int padIndex)
 {
     if (! hasPadLoopRegion (padIndex))
+    {
+        // No BPM loop region assigned to this pad — fall back to playing
+        // the whole file from the start (restart-on-repress), same as the
+        // old dedicated single-pad trigger. Means any pad bound via "Edit
+        // MIDI Mapping" alone is immediately useful with zero BPM/tap-tempo
+        // step required first — pads 0-3 only get the shorter beat-aligned
+        // loop behavior below once a tempo source has actually populated
+        // their loop region (see applyBeatGridToPads()).
+        triggerPlayback();
         return;
+    }
 
     if (activeLoopPadIndex.load() == padIndex)
     {
@@ -689,7 +699,7 @@ void YuViGlowAudioProcessor::processIncomingMidi (const juce::MidiMessage& messa
         // banks, only let ONE of them claim it per message (fader gets first
         // look); otherwise a single physical control's first touch could
         // auto-fill a slot in both banks at once (real bug, found via
-        // hardware testing 2026-08-08 — see plan/11 for the writeup).
+        // hardware testing 2026-08-08 — see plan/issues/11 for the writeup).
         const bool ccWasUnknownToEitherBank = ! faderBank.isIdentifierAssigned (cc) && ! knobBank.isIdentifierAssigned (cc);
 
         const int faderSlot = faderBank.handleIncomingIdentifier (cc, editing);

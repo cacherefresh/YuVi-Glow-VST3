@@ -1,5 +1,7 @@
 # Stem Separation
 
+**Status: [PLANNED]** — no code exists yet (no ONNX Runtime dependency, no `StemSeparator`).
+
 ## Approach
 Pretrained 4-stem source separation model (Demucs `htdemucs`-family, MIT licensed) exported to ONNX, run via **ONNX Runtime** (C++) inside the app/plugin, offline per loaded file.
 
@@ -15,7 +17,7 @@ Model weights are tens–hundreds of MB — **do not commit them directly to git
 - **Download-on-first-launch** (recommended): app fetches the ONNX weights from a stable URL on first run, verifies a checksum, caches locally. Keeps the repo light, sidesteps repo-size/notarization bloat.
 - **Git LFS**: keeps everything self-contained in-repo but bloats clone size and requires collaborators to have LFS set up.
 
-Recommendation: download-on-first-launch, documented clearly in [DJ_INSTRUCTIONS.md](../DJ_INSTRUCTIONS.md) as a one-time setup step (needs an internet connection the first time only).
+Recommendation: download-on-first-launch, documented clearly in [DJ_INSTRUCTIONS_SERATO.md](../../DJ_INSTRUCTIONS_SERATO.md) as a one-time setup step (needs an internet connection the first time only). (Renamed from `DJ_INSTRUCTIONS.md` since this was written — see `plan/issues/11-open-questions-assumptions.md` item 12.)
 
 ## Performance note
 CPU-only Demucs inference on a full song can take real time (seconds to low minutes depending on Mac hardware) — not viable to run live mid-set on a song you haven't preloaded. Practical DJ workflow: pre-load and pre-separate tracks before a set, same as prepping crates in Serato today.

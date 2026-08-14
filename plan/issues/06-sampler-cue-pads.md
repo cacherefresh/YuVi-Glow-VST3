@@ -1,5 +1,7 @@
 # 16-Pad Cue System
 
+**Status: [PLANNED]** — this specific design (draggable waveform markers, per-pad user-assigned cue positions, top-8/bottom-8 split) was never built. What actually exists instead is a different, simpler approach: pads 0-3 auto-populate as beat-aligned loop regions once BPM is known, and every other pad plays the whole file from the start — see `plan/issues/16-beat-detection-and-loop-pads.md`.
+
 4×4 pad grid split top/bottom into two distinct behaviors.
 
 ## Bottom 8 pads — Cue + play-to-end

@@ -1,5 +1,7 @@
 # Architecture
 
+**Status: [PLANNED]** — describes a `Core`/`UI` module layout (`KeyDetector`, `StemSeparator`, `SaxSynthEngine`, `ScaleMapper`, `CuePadEngine`, `MidiRouter`, `WaveformView`, `XYPadView`, etc.) that was never built. The actual MVP (`plan/issues/12-mvp-v0.md`) took a simpler, different shape — see `Source/` for what really exists.
+
 ## Module layout
 
 A shared **Core** static library used by all three build targets (standalone app, VST3, AU) so DSP logic is written once.

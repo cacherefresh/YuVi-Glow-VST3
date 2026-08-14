@@ -1,11 +1,13 @@
 # Using YuVi Glow as a Serato FX-Slot Effect
 
-Plan only, 2026-08-06 — no code changes needed for this. Everything described here (file loading, MPD226 mapping, input gain) already exists as of `plan/12-mvp-v0.md`; what's missing is verified, on-machine deployment into Serato itself, which is Mac-only and can't be done from this Linux sandbox.
+**Status: [PLANNED]** — the acceptance checklist at the bottom has never actually been run; real Mac/Serato verification hasn't happened yet. Actively being operationalized now via `plan/issues/19-serato-mac-demo.md` and [DJ_DEVELOPER_ONETIME_BUILD_SERATO.md](../../DJ_DEVELOPER_ONETIME_BUILD_SERATO.md).
+
+Plan only, 2026-08-06 — no code changes needed for this. Everything described here (file loading, MPD226 mapping, input gain) already exists as of `plan/issues/12-mvp-v0.md`; what's missing is verified, on-machine deployment into Serato itself, which is Mac-only and can't be done from this Linux sandbox.
 
 **Update, same day**: the "can't verify FX-slot hosting from Linux" gap below is now partially closed — Mixxx is a real, free, cross-platform DJ app that hosts VST3 effects directly and runs on Linux, so the *general* "does this plugin work correctly when a real DJ app hosts it as an FX-slot effect, feeds it deck audio, and the plugin also listens to a MIDI controller directly" question can be tested via Mixxx today. See `DJ_INSTRUCTIONS_MIXXX.md`. What Mixxx *can't* answer is anything Serato-specific (its exact plugin format support, its exact FX-panel UI, its own MIDI-mapping interplay) — those still need the Mac.
 
 ## Step 0 (do this first, before anything else): confirm which format Serato actually lists
-`plan/08-serato-integration.md` flags this from earlier planning and it's still unverified: **Serato DJ Pro has historically hosted VST2/AU only, not VST3** — despite this repo's name. If that's still true on your installed Serato version, the **AU build** is what goes in the FX slot, not the VST3 build. `CMakeLists.txt` already builds both on macOS for exactly this reason (`FORMATS` includes `AU` only `if(APPLE)`), so nothing needs to change here — just don't assume VST3 is the one to pick.
+`plan/issues/08-serato-integration.md` flags this from earlier planning and it's still unverified: **Serato DJ Pro has historically hosted VST2/AU only, not VST3** — despite this repo's name. If that's still true on your installed Serato version, the **AU build** is what goes in the FX slot, not the VST3 build. `CMakeLists.txt` already builds both on macOS for exactly this reason (`FORMATS` includes `AU` only `if(APPLE)`), so nothing needs to change here — just don't assume VST3 is the one to pick.
 
 Action: on the Mac, open Serato's FX/plugin panel and see which plugin formats it actually enumerates. This determines which artifact you load in step 2.
 

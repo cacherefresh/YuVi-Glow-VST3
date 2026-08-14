@@ -1,13 +1,13 @@
 # YuVi Glow — User Manual
 
-How to actually use YuVi Glow as a DJ once it's loaded and running — host-agnostic, covers what's true whether you're in Serato ([DJ_INSTRUCTIONS_SERATO.md](DJ_INSTRUCTIONS_SERATO.md)), Mixxx ([DJ_INSTRUCTIONS_MIXXX.md](DJ_INSTRUCTIONS_MIXXX.md)), or running it Standalone for testing ([STANDALONE_INSTRUCTIONS.md](STANDALONE_INSTRUCTIONS.md)). **Status: matches the current build** (`plan/12-mvp-v0.md`) — describes what's actually implemented today, not the planned-but-unbuilt waveform/cue-point feature (`plan/15-waveform-cue-points.md`).
+How to actually use YuVi Glow as a DJ once it's loaded and running — host-agnostic, covers what's true whether you're in Serato ([DJ_INSTRUCTIONS_SERATO.md](DJ_INSTRUCTIONS_SERATO.md)), Mixxx ([DJ_INSTRUCTIONS_MIXXX.md](DJ_INSTRUCTIONS_MIXXX.md)), or running it Standalone for testing ([STANDALONE_INSTRUCTIONS.md](STANDALONE_INSTRUCTIONS.md)). **Status: covers the MVP** (`plan/issues/12-mvp-v0.md`) **and the mapping-menu reorg** (`plan/issues/18-header-bar-and-midi-settings-menu.md`) — the BPM/tap-tempo/loop-pad feature (`plan/issues/16-beat-detection-and-loop-pads.md`) is built but not yet written up here, and the waveform/cue-point feature (`plan/issues/15-waveform-cue-points.md`) is still planned-but-unbuilt.
 
 ## The mental model
 YuVi Glow does two things at once, on top of whatever audio is already flowing through it (a Serato/Mixxx deck, or nothing if Standalone):
 1. **Plays a file you load into it, on command**, triggered by a MIDI pad.
 2. **Controls the volume of the pass-through audio** with a fader, and a one-click safety lock.
 
-That's the whole instrument right now. It's small on purpose — see `plan/12-mvp-v0.md` for what's still coming (key detection, a sax voice, stem separation, the full 16-pad cue/loop system).
+That's the whole instrument right now. It's small on purpose — see `plan/issues/12-mvp-v0.md` for what's still coming (key detection, a sax voice, stem separation, the full 16-pad cue/loop system).
 
 ## Step-by-step: your first session
 
@@ -28,23 +28,28 @@ Click **"Load Audio File..."** and pick an mp3/wav. Two royalty-free test files 
 (Both CC0, see `assets/audio/royaltyfree/LICENSES.md`.) This file is completely separate from whatever's playing on your actual DJ deck — think of it as a one-shot sample sitting on top of your mix, not a replacement for it.
 
 ### 4. Map your controller
-Click **"Edit MIDI Mapping"**. Every pad, knob, and fader in the on-screen grid turns **red** (unassigned). Now just touch the physical controls you want to use, in any order:
+Click the **sliders icon** in the top-right of the window (next to the general Settings gear icon) to expand the **MIDI Controller Settings** section. It opens inline, pushing everything below it down — it's not a popup, so you can click things in it and then go touch pads/knobs/faders in the main grid below without it closing on you.
+
+Inside it, click **"Edit MIDI Mapping"**. Every pad, knob, and fader in the on-screen grid turns **red** (unassigned). Now just touch the physical controls you want to use, in any order:
 - Hit pads → they turn **green** as each one gets captured.
 - Turn knobs, move faders → same thing. Turning one knob for a while only claims that one slot, even though it sends lots of MIDI messages while you turn it — you don't need to be careful about this.
 - Want to fix just one? Click its square/knob/fader on screen first (it turns **yellow**, waiting), then touch the physical control you actually want there — this steals it from wherever else it was mapped.
 
-Click **"Edit MIDI Mapping"** again when you're done. Everything goes back to showing live activity instead of assignment state.
+Click **"Edit MIDI Mapping"** again (still in that section) when you're done. Everything goes back to showing live activity instead of assignment state. Click the sliders icon again to collapse the section.
+
+The same section also has **"Assign Knob to master VST Gain"**, **"Reset All Mappings"**, and **"Learn Tap Tempo"** (binds your controller's own tap-tempo button, if it has one, to YuVi Glow's BPM/tap-tempo controls on the main screen — full walkthrough of those not yet written up here, tracked in `plan/issues/16-beat-detection-and-loop-pads.md`).
 
 ### 5. Save it so you never redo this
 Click **"Save as Default for Device"**. From now on — even after restarting — just click **"Load Default for Device"** when you plug that same controller back in, and every mapping comes back instantly.
 
 ### 6. Play
-- Hit your mapped trigger pad → the loaded file plays from the start, all the way through, mixed on top of whatever else is playing.
+- Hit any pad you mapped in step 4 → the loaded file plays from the start, all the way through, mixed on top of whatever else is playing. This is the default for every pad — no BPM setup needed.
 - Click **"Stop"** (on screen) to cut it off early.
 - Hit the pad again any time (even mid-playback) to restart it from the top.
+- (Once BPM is set via the MIDI Controller Settings section — `plan/issues/16-beat-detection-and-loop-pads.md` — pads 1-4 switch to playing a short beat-aligned loop instead, with press-again-to-stop instead of restart. Every other pad keeps playing the whole file regardless.)
 
 ### 7. Control the pass-through volume
-The **Input Gain** slider controls the volume of whatever audio is flowing *through* the plugin (your deck's own sound, if hosted in Serato/Mixxx) — separate from the loaded file's volume. Centered = normal (0dB/unity).
+The **VST MASTER Gain** slider controls the volume of whatever audio is flowing *through* the plugin (your deck's own sound, if hosted in Serato/Mixxx) — separate from the loaded file's volume. Centered = normal (0dB/unity).
 
 Toggle **"Lock @ 0dB (50%)"** any time you want to guarantee that volume can't change, whether from an on-screen drag or a bumped physical fader. Useful mid-set when you don't want a stray knob touch to change your levels.
 
@@ -52,9 +57,9 @@ Toggle **"Lock @ 0dB (50%)"** any time you want to guarantee that volume can't c
 - **The mapping is per-controller, not per-song.** Once you've saved a default for your MPD226, it applies every time that MPD226 is connected, regardless of what file is loaded.
 - **Only one file is loaded at a time.** Loading a new one replaces whatever was there.
 - **If your controller is also mapped inside Serato/Mixxx's own MIDI settings**, a pad press could trigger both that app's own function *and* YuVi Glow at the same time — check your host's own MIDI/controller preferences if that happens and decide whether you want the controller dedicated to YuVi Glow.
-- **Nothing here is locked to one loaded file's identity.** Trigger mapping and cue behavior (once built, `plan/15`) will need re-checking whenever you swap in a different song — the pad plays "the currently loaded file from the start," not "this specific song."
+- **Nothing here is locked to one loaded file's identity.** Trigger mapping and cue behavior (once built, `plan/issues/15`) will need re-checking whenever you swap in a different song — the pad plays "the currently loaded file from the start," not "this specific song."
 
 ## What's coming next (not built yet)
-- A visible waveform of the loaded file, with each pad's trigger point marked on it and highlighted when hit (`plan/15-waveform-cue-points.md`).
+- A visible waveform of the loaded file, with each pad's trigger point marked on it and highlighted when hit (`plan/issues/15-waveform-cue-points.md`).
 - Each of the 16 pads getting its own position in the song instead of every pad restarting from 0.
-- The full vision beyond that — key-aware sax playing, stem separation, a 4-stem mixer — is tracked in `plan/10-roadmap.md`.
+- The full vision beyond that — key-aware sax playing, stem separation, a 4-stem mixer — is tracked in `plan/issues/10-roadmap.md`.

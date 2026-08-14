@@ -1,5 +1,7 @@
 # Mixer
 
+**Status: [PLANNED]** — no code exists yet; depends on stem separation (`plan/issues/05`), which also doesn't exist. The 4 knobs/4 faders that do exist (`ControlPanelComponent`) are MIDI-learnable and show live position, but aren't wired to any audio parameter yet.
+
 ## Stem mixer (4 of 9 faders)
 Faders 1–4 (default) → live gain for the 4 separated stems: vocals, drums, bass, other. Each stem also gets mute/solo, exposed in the UI (`MixerStripView`) and mappable via MIDI-learn to spare pads/knobs if available — Code 49 knob availability needs hardware confirmation, see [11](11-open-questions-assumptions.md).
 

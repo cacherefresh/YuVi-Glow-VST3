@@ -18,4 +18,4 @@ Both files are **CC0 1.0 Universal (Public Domain Dedication)** — no attributi
 - Use in this repo: shorter clip for testing pad-triggered one-shot playback distinctly from the longer track above.
 
 ## Why these two, and why here
-Needed real audio to test more than MIDI mapping — actual file loading, playback, and (once built) waveform display — per `plan/11-open-questions-assumptions.md` items 2 and 8, which flagged this as blocking and something Claude can't fabricate. These are test/dev assets, not a curated "demo pack" for end users yet — see `plan/11` for the still-open question of sourcing a proper royalty-free content pack for shipping.
+Needed real audio to test more than MIDI mapping — actual file loading, playback, and (once built) waveform display — per `plan/issues/11-open-questions-assumptions.md` items 2 and 8, which flagged this as blocking and something Claude can't fabricate. These are test/dev assets, not a curated "demo pack" for end users yet — see `plan/issues/11` for the still-open question of sourcing a proper royalty-free content pack for shipping.

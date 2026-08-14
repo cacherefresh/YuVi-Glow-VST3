@@ -14,7 +14,6 @@ set -euo pipefail
 CONFIG="${1:-Debug}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build"
-APP_PATH="$BUILD_DIR/YuViGlow_artefacts/$CONFIG/Standalone/YuVi Glow"
 LOG_FILE="/tmp/yuviglow_dev.log"
 
 cd "$REPO_ROOT"
@@ -32,6 +31,14 @@ pkill -f "[Y]uVi Glow" 2>/dev/null || true
 sleep 1
 
 echo "==> Launching Standalone build..."
+# Multi-config generators (Xcode/MSVC) nest a $CONFIG dir under Standalone/;
+# single-config generators (Unix Makefiles/Ninja, the norm on Linux) don't
+# — so try both rather than hardcoding one and breaking on the other.
+if [ -x "$BUILD_DIR/YuViGlow_artefacts/$CONFIG/Standalone/YuVi Glow" ]; then
+    APP_PATH="$BUILD_DIR/YuViGlow_artefacts/$CONFIG/Standalone/YuVi Glow"
+else
+    APP_PATH="$BUILD_DIR/YuViGlow_artefacts/Standalone/YuVi Glow"
+fi
 DISPLAY="${DISPLAY:-:0}" nohup "$APP_PATH" > "$LOG_FILE" 2>&1 &
 disown
 sleep 2

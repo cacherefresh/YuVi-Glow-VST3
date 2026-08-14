@@ -1,5 +1,7 @@
 # Sax Synth Engine
 
+**Status: [PLANNED]** — no code exists yet (no `juce::Synthesiser` voice, no sample playback engine). The current plugin only does simple loaded-file trigger/loop playback, not synthesis.
+
 ## v1: sample-based
 `juce::Synthesiser` + `SamplerSound`/custom `SynthesiserVoice`, multi-sampled saxophone across velocity layers and round-robins.
 

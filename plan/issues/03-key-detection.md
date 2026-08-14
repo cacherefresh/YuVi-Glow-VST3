@@ -1,5 +1,7 @@
 # Key Detection
 
+**Status: [PLANNED]** — no code exists yet (no `KeyDetector`, no chroma/FFT analysis, no key display).
+
 ## Approach
 1. Extract a 12-bin chroma (pitch-class) vector per analysis frame via `juce::dsp::FFT`, averaged across the full track.
 2. Correlate the averaged chroma vector against the 24 Krumhansl-Kessler key profiles (12 major + 12 minor).

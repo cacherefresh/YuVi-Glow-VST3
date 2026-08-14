@@ -1,5 +1,7 @@
 # macOS Build Targets
 
+**Status: [DEVELOPED]** — the CMake Mac-target configuration described below (VST3 + AU + Standalone, universal binary, signing notes) is real, written, and present in `CMakeLists.txt` today. What's not yet done: it has never actually been built/verified on real macOS hardware — this codebase's first-ever Mac compile is happening now, see [DJ_DEVELOPER_ONETIME_BUILD_SERATO.md](../../DJ_DEVELOPER_ONETIME_BUILD_SERATO.md) and `plan/issues/19-serato-mac-demo.md`. Note the "instrument plugin" wording below is also stale — superseded by the MVP's effect-plugin pivot, `plan/issues/12-mvp-v0.md`.
+
 ## Toolchain
 - CMake + JUCE (pinned via `FetchContent`), Xcode generator.
 - C++20.

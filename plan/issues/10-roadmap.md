@@ -1,5 +1,7 @@
 # Roadmap
 
+**Status: [PLANNED]** — Phase 1 (MVP skeleton) happened, in a different shape than described (see `plan/issues/12-mvp-v0.md`), and pieces of Phase 2 (BPM detection, loop pads) happened via `plan/issues/16` — everything else (key detection, stem separation, expressive performance polish, packaging) remains unbuilt.
+
 ## Phase 0 — Planning (this session)
 Planning docs, `AGENTS.md`, `DJ_INSTRUCTIONS.md` draft, memory. **No code.**
 

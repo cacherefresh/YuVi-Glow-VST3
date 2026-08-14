@@ -7,7 +7,7 @@
 #include <array>
 
 /**
-    MVP scope only — see plan/12-mvp-v0.md.
+    MVP scope only — see plan/issues/12-mvp-v0.md.
 
     Loads one audio file, plays it start-to-end when a learned trigger pad
     is pressed (or Stop is clicked), and applies a host-audio input gain
@@ -119,7 +119,7 @@ public:
     //    physical control, not an assumption about encoder direction/mode.
     // While OFF, everything behaves as a plain display: pads show their
     // touch-glow, knobs/faders show live position, and clicking does
-    // nothing. See plan/11-open-questions-assumptions.md item 10 for the
+    // nothing. See plan/issues/11-open-questions-assumptions.md item 10 for the
     // history of what was tried before landing here.
     void setEditingMappings (bool shouldEdit);
     bool isEditingMappings() const { return editingMappings.load(); }
@@ -157,12 +157,12 @@ public:
     bool saveMappingPresetForCurrentDevice();
     bool loadMappingPresetForCurrentDevice();
 
-    // --- Tempo + beat-aligned loop pads (plan/16) ------------------------
+    // --- Tempo + beat-aligned loop pads (plan/issues/16) ------------------------
     //
     // Pads 0-3 can hold a bounded loop region (start/end sample) instead of
     // just a note assignment. Pressing a pad with a loop region starts it
     // looping (latched: press the same pad again to stop, matching the
-    // general loop-pad assumption already on record in plan/11 item 4);
+    // general loop-pad assumption already on record in plan/issues/11 item 4);
     // pressing a different loop pad switches to that one. Pads without a
     // loop region are unaffected by any of this — still display-only, same
     // as before this feature existed.
@@ -187,6 +187,9 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::File getPresetFileForCurrentDevice() const;
     void applyBeatGridToPads (const std::vector<double>& beatTimestampsSeconds);
+    // Pads with a BPM loop region latch-play that region; every other pad
+    // (i.e. any pad at all, until BPM is established) falls back to playing
+    // the whole loaded file from the start — see the .cpp for why.
     void triggerOrStopPadLoop (int padIndex);
 
     juce::AudioFormatManager formatManager;
@@ -201,7 +204,7 @@ private:
     std::atomic<bool> triggerRequested { false };
     std::atomic<bool> stopRequested { false };
 
-    // Bounded-loop playback (pads 0-3, plan/16) — layered on top of the
+    // Bounded-loop playback (pads 0-3, plan/issues/16) — layered on top of the
     // simple trigger-to-end playback above. When loopActive is set, the
     // audio callback wraps back to loopStartSample at loopEndSample instead
     // of stopping; activeLoopPadIndex tracks which pad's press is

@@ -1,7 +1,8 @@
 #include "PluginEditor.h"
 
 YuViGlowAudioProcessorEditor::YuViGlowAudioProcessorEditor (YuViGlowAudioProcessor& p)
-    : AudioProcessorEditor (&p), processor (p), padGrid (p), controlPanel (p)
+    : AudioProcessorEditor (&p), processor (p), padGrid (p), controlPanel (p),
+      midiSettingsPanel (p)
 {
     setSize (540, 770);
 
@@ -50,37 +51,11 @@ YuViGlowAudioProcessorEditor::YuViGlowAudioProcessorEditor (YuViGlowAudioProcess
             processor.applyBestGuessMappingIfUnlearned();
     };
 
-    addAndMakeVisible (learnTriggerButton);
-    learnTriggerButton.onClick = [this] { processor.armLearnTriggerPad(); };
-
-    addAndMakeVisible (triggerLearnedLabel);
-    triggerLearnedLabel.setJustificationType (juce::Justification::centredLeft);
-
-    addAndMakeVisible (learnGainButton);
-    learnGainButton.onClick = [this] { processor.armLearnGainFader(); };
-
-    addAndMakeVisible (gainLearnedLabel);
-    gainLearnedLabel.setJustificationType (juce::Justification::centredLeft);
-
-    addAndMakeVisible (editMappingButton);
-    editMappingButton.setClickingTogglesState (true);
-    editMappingButton.setColour (juce::TextButton::buttonOnColourId, juce::Colours::orange.withAlpha (0.7f));
-    editMappingButton.onClick = [this]
-    {
-        processor.setEditingMappings (editMappingButton.getToggleState());
-    };
-
-    addAndMakeVisible (resetAllMappingsButton);
-    resetAllMappingsButton.onClick = [this] { processor.resetAllMappings(); };
-
     addAndMakeVisible (saveDefaultButton);
     saveDefaultButton.onClick = [this] { processor.saveMappingPresetForCurrentDevice(); };
 
     addAndMakeVisible (loadDefaultButton);
     loadDefaultButton.onClick = [this] { processor.loadMappingPresetForCurrentDevice(); };
-
-    addAndMakeVisible (mappingStatusLabel);
-    mappingStatusLabel.setJustificationType (juce::Justification::centredLeft);
 
     addAndMakeVisible (bpmLabel);
     addAndMakeVisible (bpmEditor);
@@ -98,14 +73,33 @@ YuViGlowAudioProcessorEditor::YuViGlowAudioProcessorEditor (YuViGlowAudioProcess
     addAndMakeVisible (tapTempoButton);
     tapTempoButton.onClick = [this] { processor.registerTapTempo(); };
 
-    addAndMakeVisible (learnTapTempoButton);
-    learnTapTempoButton.onClick = [this] { processor.armLearnTapTempo(); };
-
-    addAndMakeVisible (tempoStatusLabel);
-    tempoStatusLabel.setJustificationType (juce::Justification::centredLeft);
-
     addAndMakeVisible (padGrid);
     addAndMakeVisible (controlPanel);
+
+    addAndMakeVisible (headerBar);
+    headerBar.onSettingsClicked = [this]
+    {
+        appSettingsPanel.setVisible (! appSettingsPanel.isVisible());
+        if (appSettingsPanel.isVisible())
+        {
+            headerBar.setMidiSettingsActive (false);
+            midiSettingsPanel.setVisible (false);
+            appSettingsPanel.toFront (false);
+            resized(); // MIDI-settings section may have just collapsed
+        }
+    };
+    headerBar.onMidiSettingsClicked = [this]
+    {
+        // The icon already flipped its own toggle state before this fires
+        // (setClickingTogglesState) — just mirror it onto the section.
+        midiSettingsPanel.setVisible (headerBar.isMidiSettingsActive());
+        if (midiSettingsPanel.isVisible())
+            appSettingsPanel.setVisible (false);
+        resized(); // reflow: expanding/collapsing this section shifts everything below it
+    };
+
+    addChildComponent (midiSettingsPanel); // starts collapsed — toggled inline by the header bar icon
+    addChildComponent (appSettingsPanel);
 
     startTimerHz (15);
 }
@@ -119,7 +113,19 @@ void YuViGlowAudioProcessorEditor::paint (juce::Graphics& g)
 
 void YuViGlowAudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().reduced (12);
+    auto fullBounds = getLocalBounds();
+    constexpr int headerHeight = 32;
+    headerBar.setBounds (fullBounds.removeFromTop (headerHeight));
+
+    // The general Settings stub still floats below its icon (nothing in it
+    // yet to overlap) — the MIDI-settings section below is laid out inline
+    // instead, in the normal row flow, so it can never overlap anything.
+    constexpr int appPanelWidth = 240;
+    constexpr int appPanelHeight = 120;
+    appSettingsPanel.setBounds (fullBounds.getRight() - appPanelWidth - 12, headerHeight + 4,
+                                 appPanelWidth, appPanelHeight);
+
+    auto area = fullBounds.reduced (12);
     auto row = [&area] (int h) { return area.removeFromTop (h); };
 
     auto fileRow = row (30);
@@ -137,7 +143,7 @@ void YuViGlowAudioProcessorEditor::resized()
     area.removeFromTop (16);
 
     auto gainRow = row (28);
-    gainLabel.setBounds (gainRow.removeFromLeft (90));
+    gainLabel.setBounds (gainRow.removeFromLeft (140));
     lockGainButton.setBounds (gainRow.removeFromRight (150));
     gainRow.removeFromRight (8);
     gainSlider.setBounds (gainRow);
@@ -150,35 +156,24 @@ void YuViGlowAudioProcessorEditor::resized()
 
     area.removeFromTop (16);
 
-    auto triggerRow = row (28);
-    learnTriggerButton.setBounds (triggerRow.removeFromLeft (160));
-    triggerRow.removeFromLeft (8);
-    triggerLearnedLabel.setBounds (triggerRow);
-
-    area.removeFromTop (8);
-
-    auto gainLearnRow = row (28);
-    learnGainButton.setBounds (gainLearnRow.removeFromLeft (160));
-    gainLearnRow.removeFromLeft (8);
-    gainLearnedLabel.setBounds (gainLearnRow);
-
-    area.removeFromTop (16);
-
-    auto mappingButtonRow = row (28);
-    editMappingButton.setBounds (mappingButtonRow.removeFromLeft (150));
-    mappingButtonRow.removeFromLeft (8);
-    resetAllMappingsButton.setBounds (mappingButtonRow.removeFromLeft (150));
-
-    area.removeFromTop (8);
+    // Collapsible MIDI-controller-settings section (plan/issues/18): reserves zero
+    // space when collapsed, so everything below (Save/Load Default, BPM,
+    // the pad grid) shifts straight up to close the gap — no stray blank
+    // row left behind either way.
+    if (midiSettingsPanel.isVisible())
+    {
+        midiSettingsPanel.setBounds (row (MidiControllerSettingsPanel::contentHeight));
+        area.removeFromTop (16);
+    }
+    else
+    {
+        midiSettingsPanel.setBounds ({});
+    }
 
     auto presetButtonRow = row (28);
     saveDefaultButton.setBounds (presetButtonRow.removeFromLeft (200));
     presetButtonRow.removeFromLeft (8);
     loadDefaultButton.setBounds (presetButtonRow.removeFromLeft (200));
-
-    area.removeFromTop (8);
-
-    mappingStatusLabel.setBounds (row (20));
 
     area.removeFromTop (16);
 
@@ -187,14 +182,8 @@ void YuViGlowAudioProcessorEditor::resized()
     bpmEditor.setBounds (tempoRow.removeFromLeft (70));
     tempoRow.removeFromLeft (8);
     tapTempoButton.setBounds (tempoRow.removeFromLeft (110));
-    tempoRow.removeFromLeft (8);
-    learnTapTempoButton.setBounds (tempoRow.removeFromLeft (150));
 
-    area.removeFromTop (8);
-
-    tempoStatusLabel.setBounds (row (20));
-
-    area.removeFromTop (8);
+    area.removeFromTop (16);
 
     // Physical MPD226 layout: pads on the left, faders to their right, knobs
     // above the faders — ControlPanelComponent draws knobs-over-faders
@@ -213,56 +202,11 @@ void YuViGlowAudioProcessorEditor::timerCallback()
                             juce::dontSendNotification);
     statusLabel.setText (processor.isPlaying() ? "Playing..." : "Stopped", juce::dontSendNotification);
 
-    triggerLearnedLabel.setText (processor.isLearningTrigger() ? "Waiting for pad press..."
-                                                                 : processor.getTriggerDescription(),
-                                  juce::dontSendNotification);
-    gainLearnedLabel.setText (processor.isLearningGain() ? "Waiting for fader move..."
-                                                            : processor.getGainFaderDescription(),
-                               juce::dontSendNotification);
-
-    if (! processor.isEditingMappings())
-    {
-        mappingStatusLabel.setText ("Click \"Edit MIDI Mapping\" to (re)capture pads/knobs/faders",
-                                     juce::dontSendNotification);
-    }
-    else
-    {
-        const int learningSlot = processor.getLearningPadSlot();
-        const int learningKnob = processor.getLearningKnobSlot();
-        const int learningFader = processor.getLearningFaderSlot();
-
-        if (learningSlot >= 0)
-        {
-            mappingStatusLabel.setText ("Armed: pad " + juce::String (learningSlot + 1) + " of 16 — press it now",
-                                         juce::dontSendNotification);
-        }
-        else if (learningKnob >= 0)
-        {
-            mappingStatusLabel.setText ("Armed: knob " + juce::String (learningKnob + 1) + " of 4 — turn it now",
-                                         juce::dontSendNotification);
-        }
-        else if (learningFader >= 0)
-        {
-            mappingStatusLabel.setText ("Armed: fader " + juce::String (learningFader + 1) + " of 4 — move it now",
-                                         juce::dontSendNotification);
-        }
-        else
-        {
-            mappingStatusLabel.setText ("Editing: red = unassigned, green = assigned. Click one, "
-                                         "or just touch any unassigned pad/knob/fader to fill it in.",
-                                         juce::dontSendNotification);
-        }
-    }
-
     if (! bpmEditor.hasKeyboardFocus (false))
     {
         const double bpm = processor.getCurrentBpm();
         bpmEditor.setText (bpm > 0.0 ? juce::String (bpm, 1) : juce::String(), juce::dontSendNotification);
     }
-
-    tempoStatusLabel.setText (processor.isLearningTapTempo() ? "Waiting for tap tempo button press..."
-                                                               : "Tap tempo control: " + processor.getTapTempoDescription(),
-                               juce::dontSendNotification);
 
     updateMidiDeviceDetection();
 }

@@ -7,7 +7,7 @@
 // C++ wrapper its docs site describes — that wrapper doesn't exist in the
 // actual v1.6.0 source as fetched; the C API is real, verified against the
 // checked-out headers, and is the more stable surface anyway (it's what the
-// language bindings themselves are built on). See plan/16 for the
+// language bindings themselves are built on). See plan/issues/16 for the
 // verification trail.
 std::vector<double> LibsonareTempoDetector::detectBeatTimestamps (const juce::AudioBuffer<float>& buffer, double sampleRate)
 {

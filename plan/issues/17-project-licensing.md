@@ -1,5 +1,7 @@
 # Project Licensing
 
+**Status: [UNRESOLVED]** — `LICENSE` and `CREDITS.md` are written and in place, so this isn't just planning. But one real item is still open: a JUCE forum post (not JUCE's own authoritative terms) suggested AAX/AUv3/VST2/iOS specifically might not be cleanly coverable under AGPL. None of those are formats this project actually builds (it builds classic AU, VST3, and Standalone — not AUv3), so this doesn't block anything currently shipping, but it's still unverified against JUCE's actual license page (https://juce.com/legal/juce-8-licence/) rather than confirmed.
+
 Plan + decision record, 2026-08-08. Covers the actual `LICENSE` and `CREDITS.md` files added to the repo root in this same pass.
 
 ## The finding that decided this
@@ -15,7 +17,7 @@ Given the explicit direction to go FOSS as much as possible: **this project is l
 ## `CREDITS.md`
 Every third-party work this project currently uses, per the explicit "give credit, very important" direction:
 - **JUCE** (juce-framework/JUCE) — AGPLv3/commercial dual license.
-- **libsonare** (libraz/libsonare) — Apache-2.0, planned dependency per `plan/16`, not yet integrated.
+- **libsonare** (libraz/libsonare) — Apache-2.0, planned dependency per `plan/issues/16`, not yet integrated.
 - **Two CC0 test audio files** from Wikimedia Commons — already documented in `assets/audio/royaltyfree/LICENSES.md`, cross-referenced from `CREDITS.md` rather than duplicated.
 - **The `CHAOS_Control.lic` preamble** itself, credited to its source.
 
