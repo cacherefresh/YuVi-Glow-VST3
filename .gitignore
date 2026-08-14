@@ -71,3 +71,8 @@ Testing/
 # Non-free test assets — never commit, see assets/WARNING_NON_FREE/README_WARNING_NON_FREE.md
 assets/WARNING_NON_FREE/*
 !assets/WARNING_NON_FREE/README_WARNING_NON_FREE.md
+
+# Handoff prompts/scratch for work meant to happen in *other* repos (e.g.
+# YuVi-Rays-DVS) — never part of this codebase, so the whole folder is
+# ignored outright, no exceptions.
+SUBAGENTS-EXTERNAL/
