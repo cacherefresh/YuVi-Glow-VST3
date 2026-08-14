@@ -83,8 +83,8 @@ If all four steps work, the Mac port is solid and any remaining issues are Serat
 
 ## Loading it into Serato
 
-### Step 0: confirm which format Serato actually lists
-Open Serato DJ Pro's FX panel and see what shows up for "YuVi Glow" — VST3, AU (often labeled "Component" or "AU"), or both. This has genuinely never been confirmed on a real Serato install for this project — don't assume either way going in. Whichever one(s) show up is what you use; if only one does, that's expected and fine.
+### Step 0: confirm which format Serato actually lists — try VST3 first
+Open Serato DJ Pro's FX panel and see what shows up for "YuVi Glow." **Look for VST3 first** — if it's listed, use it and test with that before touching AU at all. Reason: VST3 is the format that's been built and exercised the most already (it's what's been tested on Linux all session, and it's this repo's primary target), so it's the more likely-to-just-work path, and testing it first tells you cleanly whether an issue is "Serato-hosting-in-general" or "AU-specifically." Fall back to AU (often labeled "Component" or "AU" in Serato's list) only if VST3 doesn't show up or doesn't load. This has genuinely never been confirmed on a real Serato install for this project — don't assume either way going in.
 
 ### Step 1: insert it and open its editor
 1. Assign YuVi Glow to a deck's FX slot (whichever format Serato showed you).
