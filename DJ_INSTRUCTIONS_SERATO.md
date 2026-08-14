@@ -30,10 +30,14 @@ That deck now has YuVi Glow sitting on it. Play a track on that deck like you no
 5. **Save it so you never have to redo this**: click "Save as Default for Device." Next time — even after restarting Serato or your Mac — just click "Load Default for Device" and everything's back.
 
 ## Playing it live
-- Hit your mapped pad 1 (bottom-left) → your loaded sound plays over the deck's own audio, all the way through. Hit it again any time to restart from the top.
-- Pad 2 (right next to it) is momentary instead — it only plays while you're physically holding it down, and stops the instant you let go.
+- Hit your mapped pad 1 (bottom-left) → your loaded sound plays over the deck's own audio from the very start, all the way through. Hit it again any time to restart.
+- **Pad 9** (bottom-left of the *third* row up) is pad 1's hold-to-play twin — same starting point, but it plays only while you're physically holding it down and stops the instant you let go. Every pad in the top two rows works that way, each paired with the pad two rows below it.
+- Pads 1-8 are eight cue points into the track. Cue 1 is the start and cue 2 is 8 seconds in, both set for you on load. To set your own: while the track is playing, hit an empty pad (3-8) to mark the spot — playback doesn't jump — then hit it again to play from there.
 - Click **STOP** (in the plugin window) any time to immediately cut off whatever's playing, no matter which pad started it — it's a master off switch.
-- The "VST MASTER Gain" slider controls how loud the *deck's own sound* is as it passes through the plugin — leave it centered for normal volume. Toggle "Lock @ 0dB" if you want to guarantee the deck's volume can never be accidentally changed by a bumped fader.
+- **Input Gain (Knob 1)** controls how loud the *deck's own sound* is as it passes through the plugin — leave it centered for normal volume. Toggle "Lock @ 0dB" if you want to guarantee the deck's volume can never be accidentally changed by a bumped knob.
+- **Master Output (Fader 1)** is the level of everything leaving YuVi Glow — the deck audio and your triggered sound together. On a 2-channel mixer, where both channels are already taken by your decks, this is the only level control YuVi Glow's output has, so it's what you use to balance it against the mix.
+- **Pitch Adj (Fader 2)** speeds your loaded sound up or down by up to ±8%, exactly like a turntable pitch fader — pitch moves with speed, it isn't key-locked. The reading next to Tap Tempo shows exactly where you are (`+0.00%`, `-3.25%`). It affects only YuVi Glow's own playback; the deck passes through untouched.
+- Each fader has a **lock checkbox** underneath it. Tick one to snap that fader back to neutral and freeze it there — a knock mid-set then can't move it.
 
 ## One thing to check: does Serato already have your controller mapped?
 Serato lets you assign MIDI controllers to its own functions (cue points, loops, etc.) in its own MIDI setup screen. If your MPD226/Code 49 is *also* assigned there, pressing a pad might do two things at once — trigger YuVi Glow **and** whatever Serato has that pad set to. Check Serato's own MIDI setup (Setup → MIDI) and decide whether you want the controller dedicated to YuVi Glow or doing double duty.

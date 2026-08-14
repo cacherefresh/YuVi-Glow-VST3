@@ -50,6 +50,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(libsonare)
 
+# LINK_GROUP:RESCAN maps onto GNU ld's --start-group/--end-group, which CMake
+# only defines for Linux/*BSD/SunOS/Windows-GNU — Platform/Darwin.cmake has no
+# CMAKE_LINK_GROUP_USING_RESCAN at all. Using it on macOS is not a silent
+# no-op: CMake hard-fails at generate time with "Feature 'RESCAN' ... is not
+# supported for the 'CXX' link language", before a single file compiles.
+# Apple's ld64 doesn't need the hint anyway — unlike GNU ld's single pass, it
+# resolves static archives regardless of command-line order, so plain library
+# names give the same result. Verified against CMake 3.28's own platform
+# modules, not assumed.
+if(APPLE)
+    set(YUVIGLOW_SONARE_LINK sonare_core sonare_rt)
+else()
+    set(YUVIGLOW_SONARE_LINK "$<LINK_GROUP:RESCAN,sonare_core,sonare_rt>")
+endif()
+
 set(YUVIGLOW_FORMATS VST3 Standalone)
 if(APPLE)
     list(APPEND YUVIGLOW_FORMATS AU)
@@ -75,6 +90,18 @@ juce_add_plugin(YuViGlow
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD TRUE
+    # IS_SYNTH FALSE gives this plugin a real stereo *input* bus, so JUCE's
+    # StandalonePluginHolder opens an audio input device at startup
+    # (audioInputRequired = inChannels > 0 — juce_StandaloneFilterWindow.h).
+    # On macOS that counts as microphone access, and TCC kills any process
+    # that reaches it without NSMicrophoneUsageDescription in its Info.plist.
+    # JUCE only emits that key when MICROPHONE_PERMISSION_ENABLED is TRUE
+    # (juce_PlistOptions defaults it to false), and RuntimePermissions is a
+    # no-op off Android, so nothing else catches this. Without these two
+    # lines the Standalone smoke test crashes on launch on the Mac; it never
+    # showed up on Linux because no Info.plist is generated there.
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "YuVi Glow opens an audio input device because it runs as an audio effect. It does not record or transmit anything."
     PLUGIN_MANUFACTURER_CODE Cref
     PLUGIN_CODE Yvg1
     FORMATS ${YUVIGLOW_FORMATS}
@@ -116,7 +143,7 @@ target_link_libraries(YuViGlow
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_processors
-        "$<LINK_GROUP:RESCAN,sonare_core,sonare_rt>"
+        ${YUVIGLOW_SONARE_LINK}
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

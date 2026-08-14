@@ -44,7 +44,7 @@ Real-time scratch/vinyl control applied directly to a live audio stream — conf
 
 ## New work required
 - **Live audio capture buffer** in `PluginProcessor` — record incoming audio (the existing audio-in bus, already wired for the pass-through-gain feature) into an internal buffer for a defined duration, likely beat-count-driven using the existing `TempoDetector`/BPM state from `plan/issues/16`.
-- **Pad-trigger playback of captured slices** — extends the existing pad-trigger system (`triggerOrStopPadLoop()` et al.) to operate on the captured buffer, not just the file loaded via "Load Audio File."
+- **Pad-trigger playback of captured slices** — extends the existing pad-trigger system (`triggerCuePad()` / `startPlaybackFromSample()`, see `plan/issues/22`) to operate on the captured buffer, not just the file loaded via "Load Audio File." Note this changed after this doc was written: `triggerOrStopPadLoop()` no longer exists, and pads address cue points rather than beat-aligned loop regions.
 - **Export-to-file action** — a new UI action (button, or a new pad role — TBD) that writes the current captured buffer to a WAV file at a known location.
 - **OS-level audio routing setup** (not code — environment/config): an ALSA loopback device (`snd-aloop`) or a PipeWire virtual device, so Mixxx's Deck 3 output can actually reach YuVi Glow Standalone's input. Not yet set up on this machine — real prerequisite, not yet started.
 - **Mixxx-side configuration**: enabling external mixer mode, pointing Deck 3's output at the loopback device, unmuting/configuring YuVi Glow Standalone's audio input. Not yet done.

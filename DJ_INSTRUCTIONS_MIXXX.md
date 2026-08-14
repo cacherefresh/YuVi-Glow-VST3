@@ -25,7 +25,7 @@ That's the whole "two decks, mixing" loop — everything below layers YuVi Glow 
 1. Open Mixxx's **Effects** panel/preferences.
 2. "YuVi Glow" should be listed alongside Mixxx's built-in native effects (sourced from `~/.lv2/` — see the developer doc if it's not there).
 3. **Decide where to put it** — this changes what it actually does to your mix:
-   - **On Deck 1 or Deck 2** (one of the two decks you're actively mixing): that deck's live track passes through YuVi Glow — gain-controlled by its own "VST MASTER Gain" — and whatever sample you trigger on YuVi Glow's pads gets mixed in on top of *that deck's* audio. You keep crossfading Deck 1↔2 exactly as above; YuVi Glow just rides along on whichever one you picked.
+   - **On Deck 1 or Deck 2** (one of the two decks you're actively mixing): that deck's live track passes through YuVi Glow — gain-controlled by its own "Input Gain (Knob 1)" — and whatever sample you trigger on YuVi Glow's pads gets mixed in on top of *that deck's* audio. You keep crossfading Deck 1↔2 exactly as above; YuVi Glow just rides along on whichever one you picked.
    - **On a 3rd/4th deck, or a Sampler slot**, left empty (no track loaded on it — silence flowing through): keeps YuVi Glow fully independent of Deck 1/2. Use that channel's own fader to bring YuVi Glow's triggered sample in and out on its own, alongside your normal Deck 1↔2 crossfade. If you only have 2 decks enabled, turn on more in Preferences → Decks first.
 
 Either way, once assigned, open YuVi Glow's own plugin window from the effect slot — that's the same window/controls as the Standalone build, described below.

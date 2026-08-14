@@ -46,10 +46,10 @@ A few things you might hit on first launch (all encountered getting this far in 
 
 ## Choosing where to put it
 YuVi Glow is an *effect* — it gets assigned to whichever channel (Deck or Sampler) you choose in Mixxx's Effects panel, it doesn't create its own separate channel automatically. Two setups both work — pick based on what you're testing:
-- **On one of your two mixing decks** (e.g. Deck 1): that deck's live track passes through YuVi Glow, gain-controlled by its "VST MASTER Gain," with your pad-triggered sample mixed in on top. You crossfade Deck 1↔2 exactly as normal.
+- **On one of your two mixing decks** (e.g. Deck 1): that deck's live track passes through YuVi Glow, gain-controlled by its "Input Gain (Knob 1)," with your pad-triggered sample mixed in on top. You crossfade Deck 1↔2 exactly as normal.
 - **On a dedicated 3rd/4th deck or a Sampler slot**, left empty (no track loaded — silence flowing through it): keeps YuVi Glow fully independent of your two actual mixing decks, closer to a "third channel just for this." Enable additional decks in Mixxx's Preferences → Decks if you only have 2 active by default.
 
-Either way, once assigned, open YuVi Glow's own plugin window from the effect slot — same controls as the Standalone/VST3 builds (Load Audio File, MIDI Input dropdown, MIDI Controller Settings, VST MASTER Gain, pad grid).
+Either way, once assigned, open YuVi Glow's own plugin window from the effect slot — same controls as the Standalone/VST3 builds (Load Audio File, MIDI Input dropdown, MIDI Controller Settings, Input Gain, Master Output, Pitch Adj, pad grid).
 
 ## Troubleshooting
 - **Effects panel doesn't show an LV2 section at all / no native effects either**: something's more broadly wrong with Mixxx's effects engine, not LV2-specific — check Mixxx's own log output for startup errors.

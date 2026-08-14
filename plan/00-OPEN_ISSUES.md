@@ -13,6 +13,7 @@ Fully done, not listed here: `12-mvp-v0.md`, `13-linux-dev-testing.md`, `18-head
 - [issues/09-macos-build-targets.md](issues/09-macos-build-targets.md)
 - [issues/16-beat-detection-and-loop-pads.md](issues/16-beat-detection-and-loop-pads.md)
 - [issues/20-mvp-beta.md](issues/20-mvp-beta.md)
+- [issues/22-mixer-pitch-and-cue-pads.md](issues/22-mixer-pitch-and-cue-pads.md)
 
 ## [PLANNED] — written up, no real work started
 - [issues/01-architecture.md](issues/01-architecture.md)

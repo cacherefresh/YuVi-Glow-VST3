@@ -2,6 +2,8 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "ToggleCheckbox.h"
+#include <array>
 
 // Right-hand control column matching the MPD226's physical layout: 4 knobs
 // on top, 4 vertical faders below. Normally shows live position: a purple
@@ -10,13 +12,48 @@
 // this switches to the same flat red/yellow/green assignment-state display
 // as PadGridComponent, and each knob/fader becomes clickable to arm it for
 // learning (YuViGlowAudioProcessor::armLearnKnobSlot()/armLearnFaderSlot()).
+//
+// A row of lock checkboxes sits under the faders (plan/issues/22): locking one
+// snaps it to its neutral position — unity for the master output on fader 1,
+// 0.00% for the pitch fader on fader 2, the midpoint for the two spares —
+// and makes it ignore incoming MIDI so a bumped physical fader can't undo it.
 class ControlPanelComponent : public juce::Component,
                                private juce::Timer
 {
 public:
+    // Height of the lock-checkbox strip along the bottom.
+    static constexpr int lockRowHeight = 22;
+
     explicit ControlPanelComponent (YuViGlowAudioProcessor& p) : processor (p)
     {
+        static const char* lockTooltips[] = {
+            "Lock master output at 0dB",
+            "Lock pitch at 0.00%",
+            "Lock fader 3 at centre",
+            "Lock fader 4 at centre"
+        };
+
+        for (int i = 0; i < YuViGlowAudioProcessor::numFaders; ++i)
+        {
+            auto& button = faderLockButtons[(size_t) i];
+            button.setToggleState (processor.isFaderLocked (i), juce::dontSendNotification);
+            button.setTooltip (lockTooltips[i]);
+            button.onClick = [this, i] { processor.setFaderLocked (i, faderLockButtons[(size_t) i].getToggleState()); };
+            addAndMakeVisible (button);
+        }
+
         startTimerHz (30);
+    }
+
+    void resized() override
+    {
+        auto lockRow = getLocalBounds().removeFromBottom (lockRowHeight);
+        const int cellW = lockRow.getWidth() / YuViGlowAudioProcessor::numFaders;
+
+        for (int i = 0; i < YuViGlowAudioProcessor::numFaders; ++i)
+            faderLockButtons[(size_t) i].setBounds (lockRow.getX() + i * cellW + (cellW - yuviglow::checkbox::width) / 2,
+                                                     lockRow.getY() + (lockRowHeight - yuviglow::checkbox::height) / 2,
+                                                     yuviglow::checkbox::width, yuviglow::checkbox::height);
     }
 
     void paint (juce::Graphics& g) override
@@ -26,6 +63,7 @@ public:
         const bool editing = processor.isEditingMappings();
 
         auto area = getLocalBounds().toFloat();
+        area.removeFromBottom ((float) lockRowHeight); // reserved for the lock checkboxes
         const auto knobArea = area.removeFromTop (area.getHeight() * 0.4f);
         const auto faderArea = area;
 
@@ -101,7 +139,9 @@ public:
             {
                 const float value = processor.getFaderValue (i);
                 const auto fillRect = cell.withTop (cell.getBottom() - cell.getHeight() * value);
-                g.setColour (teal.withAlpha (0.8f));
+                // A locked fader is drawn dimmed so it reads as held rather
+                // than just happening to sit at the midpoint.
+                g.setColour (teal.withAlpha (processor.isFaderLocked (i) ? 0.3f : 0.8f));
                 g.fillRoundedRectangle (fillRect, 4.0f);
             }
 
@@ -115,7 +155,11 @@ public:
         if (! processor.isEditingMappings())
             return;
 
-        const auto bounds = getLocalBounds().toFloat();
+        auto bounds = getLocalBounds().toFloat();
+        bounds.removeFromBottom ((float) lockRowHeight);
+        if (e.position.y >= bounds.getBottom())
+            return; // in the lock-checkbox strip, not on a control
+
         const float knobAreaHeight = bounds.getHeight() * 0.4f;
 
         if (e.position.y < knobAreaHeight)
@@ -137,9 +181,16 @@ public:
     }
 
 private:
-    void timerCallback() override { repaint(); }
+    void timerCallback() override
+    {
+        for (int i = 0; i < YuViGlowAudioProcessor::numFaders; ++i)
+            yuviglow::checkbox::mirror (faderLockButtons[(size_t) i], processor.isFaderLocked (i));
+
+        repaint();
+    }
 
     YuViGlowAudioProcessor& processor;
+    std::array<juce::ToggleButton, (size_t) YuViGlowAudioProcessor::numFaders> faderLockButtons;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ControlPanelComponent)
 };

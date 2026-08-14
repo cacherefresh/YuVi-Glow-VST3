@@ -1,6 +1,10 @@
 # Beat Detection + Auto-Sliced Loop Pads
 
-**Status: [DEVELOPED]** — built and verified (`TempoDetector`/`LibsonareTempoDetector`, manual BPM entry, tap tempo, auto-sliced loop pads 0-3, all rebuilt and screenshot/hardware-tested). Not fully closed out: capturing the MPD226's real hardware tap-tempo button via `aseqdump` and setting it as the shipped default is still an outstanding to-do.
+**Status: [DEVELOPED]** — the tempo half is built and verified (`TempoDetector`/`LibsonareTempoDetector`, manual BPM entry, tap tempo). Not fully closed out: capturing the MPD226's real hardware tap-tempo button via `aseqdump` and setting it as the shipped default is still an outstanding to-do.
+
+> **Superseded in part by [22-mixer-pitch-and-cue-pads.md](22-mixer-pitch-and-cue-pads.md)** — the auto-sliced beat-aligned **loop pads on pads 0-3 no longer exist**. Those pads are cue pads now, one rule per pad, so nothing changes meaning depending on whether a BPM happens to be set. Everything in this doc about *detecting* tempo still stands and still runs; everything about binding the resulting beat grid onto pads as loop regions has been removed from the code (`applyBeatGridToPads`, `padLoopStartSample`/`padLoopEndSample`, `hasPadLoopRegion`, the `loopActive` playback branch). Read the rest of this file with that in mind.
+>
+> One thing this doc got wrong and `22` fixed: `applyBeatGridToPads()` was auto-detect's *only* consumer and never set `currentBpm`, so a detected tempo never actually reached the BPM box — auto-detect looked implemented but was invisible in the UI. BPM is now derived from the averaged inter-beat intervals and stored.
 
 Extends [15-waveform-cue-points.md](15-waveform-cue-points.md): the first 4 pads (slots 0-3, bottom-left row) auto-populate as beat-aligned loop regions when a file is loaded — pad 1 = beat 1→2, pad 2 = beat 2→3, pad 3 = beat 3→4, pad 4 = beat 4→5 — sourced from three tempo inputs (auto-detect, manual entry, tap tempo), all confirmed with the user before writing this.
 

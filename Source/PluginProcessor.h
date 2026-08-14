@@ -135,13 +135,43 @@ public:
     // then fades over ~1800ms. Requires tracking note-off, not just note-on.
     static constexpr int numPads = 16;
 
-    // MVP-BETA pad roles (see USER_MANUAL.md): pad 0 (bottom-left) plays the
-    // whole file to completion, restart-on-repress — the default fallback
-    // for every pad without a BPM loop region (see triggerOrStopPadLoop()).
-    // Pad 1 (directly right of it) is the one exception to that default:
-    // momentary/hold-to-play — starts from 0 on press, stops immediately on
-    // release, regardless of whether it ever gets a loop region assigned.
-    static constexpr int momentaryPlayPadIndex = 1;
+    // --- Cue points + pad roles (plan/issues/22) -------------------------
+    //
+    // The 4x4 grid splits in half by function, not by hardware:
+    //   pads 0-7  (bottom two rows) — latch: press once, play from that
+    //             pad's cue point through to the end of the file;
+    //   pads 8-15 (top two rows)    — momentary twins of the *same* cue
+    //             points: pad N+8 shares pad N's cue but plays only while
+    //             physically held, stopping the instant it's released.
+    // So padIndex % numCuePoints is the cue index for either half, and
+    // latch-vs-hold is the only difference between the two halves.
+    //
+    // Each top row's momentary behavior is user-toggleable (the two
+    // checkboxes left of rows 3 and 4); unchecked, that row latches like the
+    // bottom two. Both default to on.
+    static constexpr int numCuePoints = 8;
+    static constexpr int padsPerRow = 4;
+    static constexpr int firstMomentaryPadIndex = numCuePoints; // pads 8-15
+    static constexpr int numMomentaryRows = 2;
+
+    // Cue 0 (track start) and cue 1 (8s in) are both set automatically on
+    // load. Cues 2-7 start empty and capture the live playhead the first
+    // time their pad is pressed *while playing* — pressing an empty cue with
+    // nothing playing is a deliberate no-op, since there's no playhead to
+    // mark and aliasing it to "start" would make it indistinguishable from
+    // cue 0. See plan/issues/22.
+    static constexpr double autoCueTwoSeconds = 8.0;
+    int getCuePointSample (int cueIndex) const;
+    bool isCuePointSet (int cueIndex) const;
+    static int cueIndexForPad (int padIndex) { return padIndex % numCuePoints; }
+
+    // rowOffset 0 = pads 8-11 (third row), 1 = pads 12-15 (top row).
+    bool isMomentaryRowEnabled (int rowOffset) const;
+    void setMomentaryRowEnabled (int rowOffset, bool shouldBeMomentary);
+    bool isPadMomentary (int padIndex) const;
+
+    // Live playhead in samples, or -1 when stopped — what cue capture reads.
+    int getPlaybackPositionSamples() const;
 
     float getPadTouchAmount (int padIndex) const;      // purple: velocity-scaled, sustained while held, 0 once released
     float getPadAfterglowAmount (int padIndex) const;  // teal: 0 while held, fades from full over ~1800ms after release
@@ -151,6 +181,40 @@ public:
 
     static constexpr int numFaders = 4;
     static constexpr int numKnobs = 4;
+
+    // Fixed control roles — plan/issues/22's signal chain:
+    //
+    //   host audio in ─→ [knob 0: input trim] ─┐
+    //                                          ├─→ [fader 0: master out] ─→ out
+    //   cue playback  ─→ [fader 1: pitch]  ────┘
+    //
+    // Modelled on a mixer channel deliberately: on a 2-channel DJ mixer both
+    // channels are already taken by the decks, so this plugin's own output
+    // has no physical fader anywhere in the chain and has to carry its own
+    // master level separately from input trim. These are *slot* indices, not
+    // CC numbers — which physical control lands in each slot is still
+    // MIDI-learn's job, so nothing here is tied to one controller model.
+    static constexpr int inputGainKnobIndex = 0;
+    static constexpr int masterOutputFaderIndex = 0;
+    static constexpr int pitchAdjustFaderIndex = 1;
+
+    // --- Pitch Adjust (fader 1) ------------------------------------------
+    // Varispeed, turntable-style: the read position advances at
+    // 1.0 + percent/100 samples per output sample with linear interpolation,
+    // so pitch moves with tempo rather than being held. Standard DJ ±8%.
+    static constexpr float pitchAdjustRangePercent = 8.0f;
+    // A physical fader can't land on exactly 0.00% — CC 64 of 0..127 works
+    // out to +0.06% — so anything this close to centre reads as true zero.
+    static constexpr float pitchAdjustDetentPercent = 0.1f;
+    float getPitchAdjustPercent() const { return pitchAdjustPercent.load(); }
+
+    // --- Per-fader locks ---------------------------------------------------
+    // Locking a fader snaps it back to neutral and holds it there: fader 0 to
+    // unity, fader 1 to 0.00%, faders 2-3 to their midpoint. Incoming MIDI
+    // for a locked fader is ignored, so a bumped physical fader can't quietly
+    // undo the lock — the same guarantee setGainLocked() has always made.
+    void setFaderLocked (int index, bool shouldLock);
+    bool isFaderLocked (int index) const;
     float getFaderValue (int index) const; // 0..1, live CC position
     float getKnobValue (int index) const;  // 0..1, live CC position
     bool isFaderAssigned (int index) const { return faderBank.isSlotAssigned (index); }
@@ -171,21 +235,14 @@ public:
     bool saveMappingPresetForCurrentDevice();
     bool loadMappingPresetForCurrentDevice();
 
-    // --- Tempo + beat-aligned loop pads (plan/issues/16) ------------------------
+    // --- Tempo (plan/issues/16, revised by plan/issues/22) ------------------
     //
-    // Pads 0-3 can hold a bounded loop region (start/end sample) instead of
-    // just a note assignment. Pressing a pad with a loop region starts it
-    // looping (latched: press the same pad again to stop, matching the
-    // general loop-pad assumption already on record in plan/issues/11 item 4);
-    // pressing a different loop pad switches to that one. Pads without a
-    // loop region are unaffected by any of this — still display-only, same
-    // as before this feature existed.
-    //
-    // Three ways a beat grid gets set, all funnelling through the same
-    // applyBeatGridToPads(): auto-detect (libsonare, once wired up),
-    // manual BPM entry, and tap tempo. Manual/tap both assume beat 1 =
-    // sample 0 and space beats evenly at 60/BPM; auto-detect uses real
-    // detected timestamps instead once integrated.
+    // BPM still comes from all three original sources — libsonare
+    // auto-detect on load, manual entry, and tap tempo — and is still
+    // displayed and available. What plan/issues/22 retired is the *binding*
+    // of a detected beat grid onto pads 0-3 as loop regions: those pads are
+    // cue pads now, one rule per pad, so nothing silently changes meaning
+    // depending on whether a BPM happens to have been established yet.
     void setManualBpm (double bpm);
     double getCurrentBpm() const { return currentBpm.load(); }
 
@@ -194,17 +251,19 @@ public:
     bool isLearningTapTempo() const { return learningTapTempo.load(); }
     juce::String getTapTempoDescription() const;
 
-    bool hasPadLoopRegion (int padIndex) const;
-
 private:
     void processIncomingMidi (const juce::MidiMessage& message);
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::File getPresetFileForCurrentDevice() const;
-    void applyBeatGridToPads (const std::vector<double>& beatTimestampsSeconds);
-    // Pads with a BPM loop region latch-play that region; every other pad
-    // (i.e. any pad at all, until BPM is established) falls back to playing
-    // the whole loaded file from the start — see the .cpp for why.
-    void triggerOrStopPadLoop (int padIndex);
+
+    // Pad press/release, cue semantics — see plan/issues/22.
+    void triggerCuePad (int padIndex);
+    void releaseCuePad (int padIndex);
+    void startPlaybackFromSample (int startSample, int owningPadIndex);
+    void resetCuePointsForLoadedFile();
+    // Recomputes pitchAdjustPercent from fader 1's live position (or forces
+    // 0.00% while that fader is locked).
+    void refreshPitchFromFader();
 
     juce::AudioFormatManager formatManager;
 
@@ -213,24 +272,24 @@ private:
     juce::String loadedFileName;
     juce::String loadErrorMessage; // empty = no error; set when formatManager can't read a chosen file
 
-    std::atomic<int> playbackPosition { -1 };
+    // Fractional so varispeed can advance it by a non-integer rate; -1.0 is
+    // the stopped sentinel, matching what the int version used to mean.
+    std::atomic<double> playbackPosition { -1.0 };
     std::atomic<bool> playing { false };
     std::atomic<bool> gainLocked { false };
     std::atomic<bool> triggerRequested { false };
     std::atomic<bool> stopRequested { false };
+    std::atomic<int> pendingStartSample { 0 };
+    // Which pad's press started what's currently playing, so a momentary
+    // pad's release only stops playback it actually owns — releasing pad 9
+    // must not cut a track that pad 1 started.
+    std::atomic<int> activePlaybackPadIndex { -1 };
 
-    // Bounded-loop playback (pads 0-3, plan/issues/16) — layered on top of the
-    // simple trigger-to-end playback above. When loopActive is set, the
-    // audio callback wraps back to loopStartSample at loopEndSample instead
-    // of stopping; activeLoopPadIndex tracks which pad's press is
-    // responsible, so the *same* pad pressed again stops it (latched).
-    std::atomic<bool> loopActive { false };
-    std::atomic<int> loopStartSample { 0 };
-    std::atomic<int> loopEndSample { -1 };
-    std::atomic<int> activeLoopPadIndex { -1 };
+    std::array<std::atomic<int>, (size_t) numCuePoints> cuePointSample; // -1 = unset
+    std::array<std::atomic<bool>, (size_t) numMomentaryRows> momentaryRowEnabled;
 
-    std::array<std::atomic<int>, (size_t) numPads> padLoopStartSample; // -1 = no loop region set
-    std::array<std::atomic<int>, (size_t) numPads> padLoopEndSample;   // -1 = no loop region set
+    std::atomic<float> pitchAdjustPercent { 0.0f };
+    std::array<std::atomic<bool>, (size_t) numFaders> faderLocked {};
 
     std::atomic<double> currentBpm { 0.0 };
     std::atomic<bool> learningTapTempo { false };
@@ -241,6 +300,7 @@ private:
     std::vector<double> tapIntervalsMs; // guarded by tapTempoLock
 
     juce::SmoothedValue<float> smoothedInputGain;
+    juce::SmoothedValue<float> smoothedMasterOutput;
 
     MidiDeviceManager midiDeviceManager;
 

@@ -30,10 +30,19 @@ private:
     juce::Label fileNameLabel;
     juce::Label statusLabel;
 
-    juce::Label gainLabel { {}, "VST MASTER Gain" };
+    // Stage 1 of the signal chain (plan/issues/22): trim on the incoming host
+    // audio, bound to knob 1 on the controller.
+    juce::Label gainLabel { {}, "Input Gain (Knob 1)" };
     juce::Slider gainSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> gainAttachment;
     juce::ToggleButton lockGainButton { "Lock @ 0dB (50%)" };
+
+    // Stage 3: master output on the summed result, bound to fader 1. Its lock
+    // lives with the other fader locks in ControlPanelComponent rather than
+    // being duplicated here.
+    juce::Label masterOutputLabel { {}, "Master Output (Fader 1)" };
+    juce::Slider masterOutputSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> masterOutputAttachment;
 
     juce::Label midiDeviceLabel { {}, "MIDI Input" };
     juce::ComboBox midiDeviceBox;
@@ -46,11 +55,15 @@ private:
     PadGridComponent padGrid;
     ControlPanelComponent controlPanel;
 
-    // Tempo + beat-aligned loop pads (plan/issues/16). Pads 0-3 in the grid above
-    // auto-populate as loop regions once a BPM is known from any of these.
+    // Tempo (plan/issues/16, revised by plan/issues/22 — the beat grid no longer
+    // binds itself onto pads 0-3 as loop regions; those are cue pads now).
     juce::Label bpmLabel { {}, "BPM" };
     juce::TextEditor bpmEditor;
     juce::TextButton tapTempoButton { "Tap Tempo" };
+
+    // Read-only varispeed readout for fader 2, sat beside Tap Tempo.
+    juce::Label pitchAdjLabel { {}, "Pitch Adj" };
+    juce::Label pitchAdjValueLabel;
 
     // Header bar + the two menus it opens (plan/issues/18). Controller-mapping
     // configuration (learn buttons, edit toggle, reset, learn tap tempo)

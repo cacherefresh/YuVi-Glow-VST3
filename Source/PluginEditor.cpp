@@ -35,6 +35,13 @@ YuViGlowAudioProcessorEditor::YuViGlowAudioProcessorEditor (YuViGlowAudioProcess
         gainSlider.setEnabled (! locked);
     };
 
+    addAndMakeVisible (masterOutputLabel);
+    addAndMakeVisible (masterOutputSlider);
+    masterOutputSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    masterOutputSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 60, 20);
+    masterOutputAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        processor.apvts, "masterOutput", masterOutputSlider);
+
     addAndMakeVisible (midiDeviceLabel);
     addAndMakeVisible (midiDeviceBox);
     updateMidiDeviceDetection();
@@ -72,6 +79,13 @@ YuViGlowAudioProcessorEditor::YuViGlowAudioProcessorEditor (YuViGlowAudioProcess
 
     addAndMakeVisible (tapTempoButton);
     tapTempoButton.onClick = [this] { processor.registerTapTempo(); };
+
+    addAndMakeVisible (pitchAdjLabel);
+    addAndMakeVisible (pitchAdjValueLabel);
+    pitchAdjValueLabel.setJustificationType (juce::Justification::centredRight);
+    // Read-only: the value comes from fader 2's physical position (or the
+    // lock), never from typing into it.
+    pitchAdjValueLabel.setColour (juce::Label::outlineColourId, juce::Colours::white.withAlpha (0.25f));
 
     addAndMakeVisible (padGrid);
     addAndMakeVisible (controlPanel);
@@ -148,6 +162,13 @@ void YuViGlowAudioProcessorEditor::resized()
     gainRow.removeFromRight (8);
     gainSlider.setBounds (gainRow);
 
+    area.removeFromTop (8);
+
+    auto masterOutputRow = row (28);
+    masterOutputLabel.setBounds (masterOutputRow.removeFromLeft (140));
+    masterOutputRow.removeFromRight (158); // keeps the slider aligned with the gain slider above it
+    masterOutputSlider.setBounds (masterOutputRow);
+
     area.removeFromTop (16);
 
     auto midiRow = row (28);
@@ -182,6 +203,9 @@ void YuViGlowAudioProcessorEditor::resized()
     bpmEditor.setBounds (tempoRow.removeFromLeft (70));
     tempoRow.removeFromLeft (8);
     tapTempoButton.setBounds (tempoRow.removeFromLeft (110));
+    tempoRow.removeFromLeft (16);
+    pitchAdjLabel.setBounds (tempoRow.removeFromLeft (70));
+    pitchAdjValueLabel.setBounds (tempoRow.removeFromLeft (80));
 
     area.removeFromTop (16);
 
@@ -205,6 +229,9 @@ void YuViGlowAudioProcessorEditor::timerCallback()
     statusLabel.setText (processor.isPlaying() ? juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x8a Playing..."))  // U+1F50A speaker-with-sound-waves
                                                 : juce::String ("Stopped"),
                           juce::dontSendNotification);
+
+    pitchAdjValueLabel.setText (juce::String::formatted ("%+.2f%%", processor.getPitchAdjustPercent()),
+                                 juce::dontSendNotification);
 
     if (! bpmEditor.hasKeyboardFocus (false))
     {
@@ -274,7 +301,12 @@ void YuViGlowAudioProcessorEditor::updateMidiDeviceDetection()
 
 void YuViGlowAudioProcessorEditor::chooseFile()
 {
-    fileChooser = std::make_unique<juce::FileChooser> ("Select an audio file", juce::File(), "*.wav;*.mp3");
+    // Every format JUCE's registerBasicFormats() actually decodes with this
+    // build's flags. The filter used to be "*.wav;*.mp3", which silently hid
+    // both of the repo's own CC0 test clips (assets/audio/royaltyfree/*.ogg)
+    // from the picker the smoke tests tell you to load them with.
+    fileChooser = std::make_unique<juce::FileChooser> ("Select an audio file", juce::File(),
+                                                        "*.wav;*.mp3;*.ogg;*.flac;*.aiff;*.aif");
 
     const auto chooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
 
