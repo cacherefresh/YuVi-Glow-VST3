@@ -12,6 +12,7 @@ Fully done, not listed here: `12-mvp-v0.md`, `13-linux-dev-testing.md`, `18-head
 ## [DEVELOPED] — coded and working, not fully complete
 - [issues/09-macos-build-targets.md](issues/09-macos-build-targets.md)
 - [issues/16-beat-detection-and-loop-pads.md](issues/16-beat-detection-and-loop-pads.md)
+- [issues/20-mvp-beta.md](issues/20-mvp-beta.md)
 
 ## [PLANNED] — written up, no real work started
 - [issues/01-architecture.md](issues/01-architecture.md)
@@ -25,3 +26,4 @@ Fully done, not listed here: `12-mvp-v0.md`, `13-linux-dev-testing.md`, `18-head
 - [issues/10-roadmap.md](issues/10-roadmap.md)
 - [issues/14-serato-effect-workflow.md](issues/14-serato-effect-workflow.md)
 - [issues/15-waveform-cue-points.md](issues/15-waveform-cue-points.md)
+- [issues/21-mvp-beta-mixxx.md](issues/21-mvp-beta-mixxx.md)

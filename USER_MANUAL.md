@@ -43,10 +43,12 @@ The same section also has **"Assign Knob to master VST Gain"**, **"Reset All Map
 Click **"Save as Default for Device"**. From now on — even after restarting — just click **"Load Default for Device"** when you plug that same controller back in, and every mapping comes back instantly.
 
 ### 6. Play
-- Hit any pad you mapped in step 4 → the loaded file plays from the start, all the way through, mixed on top of whatever else is playing. This is the default for every pad — no BPM setup needed.
-- Click **"Stop"** (on screen) to cut it off early.
-- Hit the pad again any time (even mid-playback) to restart it from the top.
-- (Once BPM is set via the MIDI Controller Settings section — `plan/issues/16-beat-detection-and-loop-pads.md` — pads 1-4 switch to playing a short beat-aligned loop instead, with press-again-to-stop instead of restart. Every other pad keeps playing the whole file regardless.)
+Two pads have a fixed, special role — every other pad you map behaves like pad 1:
+- **Pad 1 (bottom-left)**: hit it → the loaded file plays from the start, all the way through, mixed on top of whatever else is playing. Hit it again any time (even mid-playback) to restart from the top. This is the default for every pad except pad 2 — no BPM setup needed.
+- **Pad 2 (directly to its right)**: momentary — plays from the start only **while you're physically holding it down**, and stops the instant you release it. This one's fixed regardless of BPM/loop setup.
+- **STOP** (on screen) is a master off switch — click it any time to immediately cut off whatever's currently playing, no matter which pad started it.
+- The status text next to STOP shows 🔊 **Playing...** while something's audible, or **Stopped** otherwise.
+- (Once BPM is set via the MIDI Controller Settings section — `plan/issues/16-beat-detection-and-loop-pads.md` — pads 1, 3, and 4 switch to playing a short beat-aligned loop instead of the whole file, with press-again-to-stop instead of restart. Pad 2 keeps its momentary behavior regardless — BPM never changes what it does.)
 
 ### 7. Control the pass-through volume
 The **VST MASTER Gain** slider controls the volume of whatever audio is flowing *through* the plugin (your deck's own sound, if hosted in Serato/Mixxx) — separate from the loaded file's volume. Centered = normal (0dB/unity).

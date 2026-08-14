@@ -2,6 +2,8 @@
 
 **Status: [UNRESOLVED]** — the code fix (pad-fallback playback) is done and verified on Linux; the developer/usage docs are written. What's still deferred: the actual Mac build, install, and live Serato demo, which only the user can execute on their own machine. Resolves the long-open VST3-vs-AU-in-Serato question from `plan/issues/08`/`plan/issues/11` item 11/`plan/issues/14` once that happens.
 
+**Update, 2026-08-13**: reconfirmed as the **primary focus**, explicitly ahead of `plan/issues/21-mvp-beta-mixxx.md` (a separate track, not a prerequisite for this). `DJ_DEVELOPER_ONETIME_BUILD_SERATO.md`'s smoke-test and "play it" steps updated to match the MVP-BETA pad 1 (restart-on-repress) / pad 2 (momentary) / STOP / 🔊 Playing changes from `plan/issues/20-mvp-beta.md` — those didn't exist when this doc was first written. Rebuilt clean on Linux just before this update, no regressions. Still nothing beyond this point can happen without the user actually running the steps on their Mac.
+
 ## Context
 Goal: a working demo inside Serato DJ Pro on the user's Mac (M2/M3, DJ-SM9-class Serato setup) within a few hours — load a song from disk, connect the MPD226, trigger playback with at least one pad, all with Serato running and YuVi Glow loaded into an FX slot. This is the **first time this codebase has ever been compiled on macOS** — everything up to now has been built/tested on this Linux sandbox (Standalone + VST3 only; AU is macOS-only and has literally never been built).
 

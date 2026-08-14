@@ -76,10 +76,10 @@ open build/debug/YuViGlow_artefacts/Standalone/"YuVi Glow.app"
 ```
 1. **MIDI Input** dropdown should list your MPD226 — possibly as "Akai MPD226", possibly as "Custom MIDI Device (...)" if the exact CoreMIDI name string doesn't match what the code looks for. Either is fine; MIDI-learn works identically regardless of which label it gets.
 2. **Load Audio File...** → pick one of the repo's own test clips, e.g. `assets/audio/royaltyfree/war-sounds.ogg` (short, CC0, zero setup — good for a quick pass/fail check before switching to your real demo song).
-3. Click the **sliders icon** (top-right) to expand **MIDI Controller Settings**, click **Edit MIDI Mapping**, hit one physical pad on the MPD226 — it should turn green in the on-screen grid.
-4. Click **Edit MIDI Mapping** again to exit edit mode, then press that same pad — you should hear the file play.
+3. Click the **sliders icon** (top-right) to expand **MIDI Controller Settings**, click **Edit MIDI Mapping**, hit two physical pads on the MPD226 (bottom-left = pad 1, the one directly right of it = pad 2) — both should turn green in the on-screen grid.
+4. Click **Edit MIDI Mapping** again to exit edit mode. Press **pad 1** — the file should play from the start, and the status text next to STOP should switch to **🔊 Playing...**. Press it again — it restarts from the top. Click **STOP** — playback should cut off immediately, status back to **Stopped**. Now hold **pad 2** down — it should only play while held, stopping the instant you release it (this is the one new/different pad behavior added this session — see `plan/issues/20-mvp-beta.md` — worth confirming it specifically, since it's never been physically pad-tested before, only code-reviewed).
 
-If all four steps work, the Mac port is solid and any remaining issues are Serato/host-specific, not a fundamental problem with the code on this platform.
+If all of this works, the Mac port is solid and any remaining issues are Serato/host-specific, not a fundamental problem with the code on this platform.
 
 ## Loading it into Serato
 
@@ -98,8 +98,10 @@ Open Serato DJ Pro's FX panel and see what shows up for "YuVi Glow." **Look for 
 
 ### Step 3: play it
 - Play a track on that Serato deck as normal — nothing about your regular mixing changes.
-- Hit your mapped pad → the loaded song plays from the start, all the way through, mixed on top of the deck's own audio (this is the pad-fallback-to-whole-file behavior — no BPM/tap-tempo setup needed for this).
-- Full usage details (Stop button, VST MASTER Gain, gain lock, mapping more than one pad, etc.) are in [DJ_INSTRUCTIONS_SERATO.md](DJ_INSTRUCTIONS_SERATO.md) — that's the doc to keep open during the actual demo.
+- Hit pad 1 (bottom-left) → the loaded song plays from the start, all the way through, mixed on top of the deck's own audio, status shows 🔊 Playing. Hit it again to restart from the top.
+- Pad 2 (directly right of it) is momentary instead — plays only while held, stops on release.
+- **STOP** cuts off whatever's playing immediately, no matter which pad started it.
+- Full usage details (VST MASTER Gain, gain lock, mapping more than one pad, etc.) are in [DJ_INSTRUCTIONS_SERATO.md](DJ_INSTRUCTIONS_SERATO.md) — that's the doc to keep open during the actual demo.
 
 ## Troubleshooting
 - **Neither VST3 nor AU shows up in Serato at all**: confirm both are actually installed — `ls ~/Library/Audio/Plug-Ins/VST3/` and `ls ~/Library/Audio/Plug-Ins/Components/` should each show `YuVi Glow.*`. If they're missing, the build/install step above didn't complete — check the build output for errors rather than re-running blind. If they're present but Serato still doesn't see them, restart Serato (it scans for plugins at launch) or look for a "rescan plugins" option in its settings.

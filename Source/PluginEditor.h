@@ -26,7 +26,7 @@ private:
     YuViGlowAudioProcessor& processor;
 
     juce::TextButton loadButton { "Load Audio File..." };
-    juce::TextButton stopButton { "Stop" };
+    juce::TextButton stopButton { "STOP" }; // always says STOP — a momentary master-off switch, never toggles label/state
     juce::Label fileNameLabel;
     juce::Label statusLabel;
 

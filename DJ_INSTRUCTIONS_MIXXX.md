@@ -1,34 +1,34 @@
 # YuVi Glow — Using It in Mixxx
 
-**Status: DRAFT**, matches the current build (`plan/issues/12-mvp-v0.md`). No coding knowledge needed for anything below.
+**Status: DRAFT**, matches the current build (`plan/issues/12-mvp-v0.md`, `plan/issues/20-mvp-beta.md`). No coding knowledge needed for anything below. The LV2 build itself is verified (builds clean, produces a well-formed plugin bundle, Mixxx's installed binary directly links the LV2 host library it needs) — actually seeing it appear and load inside Mixxx's own Effects UI has **not** been visually confirmed yet (a rendering issue in the dev sandbox blocked that specific check) — worth confirming yourself the first time you try this.
 
 ## What's Mixxx?
-[Mixxx](https://mixxx.org) is a free, open-source DJ application — similar idea to Serato, but free and available on Linux, Mac, and Windows. Unlike Serato, Mixxx directly supports loading VST3 plugins as effects, which makes it the easiest way to try YuVi Glow without needing a Mac at all.
+[Mixxx](https://mixxx.org) is a free, open-source DJ application — similar idea to Serato, but free and available on Linux, Mac, and Windows. **Correction, 2026-08-13**: this doc previously said Mixxx hosts VST3 directly — checked properly (inspecting the actual installed binary, not just assuming) and that's wrong. Mixxx has **no VST/VST3 support at all**; it only hosts its own native effects and **LV2** plugins. YuVi Glow now builds an LV2 target specifically so Mixxx can load it directly (Linux only for now) — that's what this doc actually walks through below.
 
 ## What you need
-- A computer running Mixxx (Linux, Mac, or Windows).
+- A computer running Mixxx **on Linux** — this doc is specifically the LV2 path (see "What's Mixxx?" above for why). Mixxx on Mac/Windows can't load YuVi Glow at all today (no LV2 build for those platforms yet); use the "other DAWs" section at the bottom instead (REAPER/Ableton/Logic via VST3/AU), or [DJ_INSTRUCTIONS_SERATO.md](DJ_INSTRUCTIONS_SERATO.md) on a Mac.
 - An M-Audio Code 49, Akai MPD226, or honestly any class-compliant MIDI controller.
 
-## Installing Mixxx (Ubuntu/Linux)
-```
-sudo apt-get install mixxx
-```
-(Or download an installer from [mixxx.org](https://mixxx.org) for Mac/Windows/other Linux distros.)
-
 ## Getting YuVi Glow's plugin installed
-Build it from this repo (see [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md)) — the build automatically installs the VST3 to the standard location Mixxx scans:
-```
-cmake -S . -B build
-cmake --build build --config Debug -j$(nproc)
-```
-This installs to `~/.vst3/YuVi Glow.vst3` on Linux (or the equivalent per-platform path elsewhere).
+There's no installer — the plugin has to be built from source once per machine (or per code update). That's a separate, developer-facing process: see [DJ_DEVELOPER_ONETIME_BUILD_MIXXX.md](DJ_DEVELOPER_ONETIME_BUILD_MIXXX.md) for the exact steps. Come back here once "YuVi Glow" is actually showing up in Mixxx's Effects panel.
 
-## Loading it in Mixxx
-1. Open Mixxx → **Effects** panel.
-2. If this is the first time, go to Mixxx's plugin/effects preferences and make sure VST3 scanning is enabled, then let it rescan — it should pick up `~/.vst3/YuVi Glow.vst3` automatically.
-3. Assign YuVi Glow to an effect unit on the deck you want to use it on.
+## Load two songs and mix them (plain Mixxx, no YuVi Glow yet)
+If you're new to Mixxx itself, this is the bare minimum to get two tracks playing and crossfading — skip ahead if you already know your way around it.
+1. Open the **Library** panel (left side) and browse to a folder with some tracks — or drag files in directly from your file manager.
+2. Drag a track onto **Deck 1** (or double-click it with Deck 1 selected/loaded). Drag a second track onto **Deck 2**.
+3. Click each deck's **Play** button (▶) to start them. Use each deck's own volume fader to get levels roughly even.
+4. Use the **crossfader** (the horizontal slider at the bottom-center) to blend between Deck 1 and Deck 2 — full left = only Deck 1 audible, full right = only Deck 2, center = both.
 
-That deck now has YuVi Glow active. Play a track on it like normal.
+That's the whole "two decks, mixing" loop — everything below layers YuVi Glow on top of it.
+
+## Loading YuVi Glow in Mixxx
+1. Open Mixxx's **Effects** panel/preferences.
+2. "YuVi Glow" should be listed alongside Mixxx's built-in native effects (sourced from `~/.lv2/` — see the developer doc if it's not there).
+3. **Decide where to put it** — this changes what it actually does to your mix:
+   - **On Deck 1 or Deck 2** (one of the two decks you're actively mixing): that deck's live track passes through YuVi Glow — gain-controlled by its own "VST MASTER Gain" — and whatever sample you trigger on YuVi Glow's pads gets mixed in on top of *that deck's* audio. You keep crossfading Deck 1↔2 exactly as above; YuVi Glow just rides along on whichever one you picked.
+   - **On a 3rd/4th deck, or a Sampler slot**, left empty (no track loaded on it — silence flowing through): keeps YuVi Glow fully independent of Deck 1/2. Use that channel's own fader to bring YuVi Glow's triggered sample in and out on its own, alongside your normal Deck 1↔2 crossfade. If you only have 2 decks enabled, turn on more in Preferences → Decks first.
+
+Either way, once assigned, open YuVi Glow's own plugin window from the effect slot — that's the same window/controls as the Standalone build, described below.
 
 ## Setting it up
 Same as the Serato version — see [DJ_INSTRUCTIONS_SERATO.md](DJ_INSTRUCTIONS_SERATO.md)'s "Setting it up" and "Playing it live" sections, the plugin's own window works identically no matter which app is hosting it:

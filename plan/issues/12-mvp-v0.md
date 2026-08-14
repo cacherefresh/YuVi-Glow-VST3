@@ -66,7 +66,7 @@ Added 2026-08-06. **"Save as Default for Device"** / **"Load Default for Device"
 ## Build targets and documentation (2026-08-06)
 Formalized as one-codebase-three-targets, matching what was already technically true:
 - **Standalone** (Linux + macOS) — dev/test loop, see [STANDALONE_INSTRUCTIONS.md](../../STANDALONE_INSTRUCTIONS.md) and `scripts/linux_dev_env.sh`.
-- **VST3** (all platforms) — loads in Mixxx (a real, free, cross-platform DJ app that hosts VST3 effects directly, unlike Serato) or any other VST3 host, see [DJ_INSTRUCTIONS_MIXXX.md](../../DJ_INSTRUCTIONS_MIXXX.md).
+- **VST3** (all platforms) — loads in most VST3 hosts (REAPER, Ableton, etc.), see [DJ_INSTRUCTIONS_MIXXX.md](../../DJ_INSTRUCTIONS_MIXXX.md)'s "other DAWs" section.
 - **AU** (macOS only) — the format Serato likely actually requires (unverified — see [14-serato-effect-workflow.md](14-serato-effect-workflow.md) step 0), see [DJ_INSTRUCTIONS_SERATO.md](../../DJ_INSTRUCTIONS_SERATO.md) (renamed from the earlier `DJ_INSTRUCTIONS.md`, and rewritten to match this MVP instead of the superseded standalone+BlackHole plan).
 
-Mixxx specifically matters because it closes most of the "can't verify FX-slot hosting without a Mac" gap noted in `plan/issues/14` — it's a real DJ app, on Linux, hosting the exact plugin format Serato would also load.
+**Correction, 2026-08-13**: the line below originally claimed Mixxx "hosts VST3 effects directly" — checked properly (inspecting the installed binary) and that's false; Mixxx has no VST/VST3 support at all, only native effects and LV2. Fixed by adding a fourth build target, **LV2** (Linux only) — see `plan/issues/20-mvp-beta.md`. Mixxx still matters for the same underlying reason (a real DJ app, on Linux, that can host this plugin without needing a Mac) — just via LV2, not VST3.

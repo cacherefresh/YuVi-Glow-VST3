@@ -224,7 +224,11 @@ void YuViGlowAudioProcessor::loadAudioFile (const juce::File& file)
 {
     std::unique_ptr<juce::AudioFormatReader> reader (formatManager.createReaderFor (file));
     if (reader == nullptr)
+    {
+        const juce::ScopedLock sl (bufferLock);
+        loadErrorMessage = "Couldn't load \"" + file.getFileName() + "\" — unsupported or corrupt file";
         return;
+    }
 
     const int numChannels = static_cast<int> (reader->numChannels);
     const int numSourceSamples = static_cast<int> (reader->lengthInSamples);
@@ -259,6 +263,7 @@ void YuViGlowAudioProcessor::loadAudioFile (const juce::File& file)
         const juce::ScopedLock sl (bufferLock);
         sampleBuffer = std::move (newBuffer);
         loadedFileName = file.getFileName();
+        loadErrorMessage.clear();
     }
 
     stopPlayback();
@@ -293,6 +298,12 @@ juce::String YuViGlowAudioProcessor::getLoadedFileName() const
 {
     const juce::ScopedLock sl (bufferLock);
     return loadedFileName;
+}
+
+juce::String YuViGlowAudioProcessor::getLoadError() const
+{
+    const juce::ScopedLock sl (bufferLock);
+    return loadErrorMessage;
 }
 
 bool YuViGlowAudioProcessor::isFileLoaded() const
@@ -648,7 +659,15 @@ void YuViGlowAudioProcessor::processIncomingMidi (const juce::MidiMessage& messa
             padHeld[(size_t) padIndex].store (true);
 
             if (! editingMappings.load())
-                triggerOrStopPadLoop (padIndex);
+            {
+                // Pad 1 is momentary — starts on press, stops on release
+                // (handled in the note-off branch below) — takes priority
+                // over the loop-region fallback every other pad uses.
+                if (padIndex == momentaryPlayPadIndex)
+                    triggerPlayback();
+                else
+                    triggerOrStopPadLoop (padIndex);
+            }
         }
 
         if (learningTrigger.exchange (false))
@@ -686,6 +705,9 @@ void YuViGlowAudioProcessor::processIncomingMidi (const juce::MidiMessage& messa
         {
             padHeld[(size_t) padIndex].store (false);
             padReleaseTimestampMs[(size_t) padIndex].store (juce::Time::getMillisecondCounterHiRes());
+
+            if (padIndex == momentaryPlayPadIndex && ! editingMappings.load())
+                stopPlayback();
         }
     }
     else if (message.isController())

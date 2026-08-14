@@ -198,9 +198,13 @@ void YuViGlowAudioProcessorEditor::resized()
 
 void YuViGlowAudioProcessorEditor::timerCallback()
 {
-    fileNameLabel.setText (processor.isFileLoaded() ? processor.getLoadedFileName() : "No file loaded",
+    const auto loadError = processor.getLoadError();
+    fileNameLabel.setText (processor.isFileLoaded() ? processor.getLoadedFileName()
+                                                     : (loadError.isNotEmpty() ? loadError : "No file loaded"),
                             juce::dontSendNotification);
-    statusLabel.setText (processor.isPlaying() ? "Playing..." : "Stopped", juce::dontSendNotification);
+    statusLabel.setText (processor.isPlaying() ? juce::String (juce::CharPointer_UTF8 ("\xf0\x9f\x94\x8a Playing..."))  // U+1F50A speaker-with-sound-waves
+                                                : juce::String ("Stopped"),
+                          juce::dontSendNotification);
 
     if (! bpmEditor.hasKeyboardFocus (false))
     {

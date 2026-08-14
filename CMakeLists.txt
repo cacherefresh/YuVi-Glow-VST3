@@ -54,6 +54,17 @@ set(YUVIGLOW_FORMATS VST3 Standalone)
 if(APPLE)
     list(APPEND YUVIGLOW_FORMATS AU)
 endif()
+if(UNIX AND NOT APPLE)
+    # LV2 — lets Mixxx host YuVi Glow directly (Mixxx has no VST/VST3
+    # support at all, confirmed by inspecting the installed binary, but its
+    # installed build does link liblilv and genuinely hosts LV2 plugins via
+    # its LV2Backend). JUCE's own CMake tooling has real first-party LV2
+    # support (see extras/Build/CMake/JUCEUtils.cmake), so this is a small,
+    # precedented addition, not a new subsystem. Scoped to Linux for now,
+    # matching where it's actually been verified — see
+    # plan/issues/20-mvp-beta.md and the session that added this.
+    list(APPEND YUVIGLOW_FORMATS LV2)
+endif()
 
 juce_add_plugin(YuViGlow
     COMPANY_NAME "CacheRefresh"
@@ -68,6 +79,7 @@ juce_add_plugin(YuViGlow
     PLUGIN_CODE Yvg1
     FORMATS ${YUVIGLOW_FORMATS}
     PRODUCT_NAME "YuVi Glow"
+    LV2URI "https://github.com/cacherefresh/YuVi-Glow-VST3/lv2/YuViGlow"
 )
 
 juce_generate_juce_header(YuViGlow)
@@ -85,6 +97,19 @@ target_compile_definitions(YuViGlow
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
+        # JUCE's registerBasicFormats() only registers MP3 decoding if this
+        # is set — without it, formatManager.createReaderFor() silently
+        # returns nullptr for any .mp3 (found via real user testing: file
+        # picker let you choose one, but nothing loaded, no error, no way to
+        # tell why). JUCE's own header carries an explicit disclaimer on this
+        # flag ("NOT guaranteed to be free from infringements of 3rd-party
+        # intellectual property... at your own risk") — flagged here rather
+        # than silently enabled, per this project's licensing ground rules
+        # (see CREDITS.md). In practice, the core MP3 patents (Fraunhofer/
+        # Technicolor) expired industry-wide around 2017; real risk today is
+        # low, and MP3 loading is an explicit project requirement (see
+        # assets/WARNING_NON_FREE/).
+        JUCE_USE_MP3AUDIOFORMAT=1
 )
 
 target_link_libraries(YuViGlow

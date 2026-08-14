@@ -1,0 +1,34 @@
+# Hardware notes
+
+### PIONEER DJM-S9
+Unlike the old Serato SL1 box (which used a proprietary, non-MIDI USB audio/control stream) (But fortunately was not usb-encoded so we could still tap into the signals for the 4 channels of the turntables output and redirecting them as signal into something such as as MIXXX which I did 10 years back ^_~)
+
+
+, the Pioneer DJM-S9 is a class-compliant USB MIDI and audio device. When Serato is not running, the DJM-S9 functions as a general-purpose MIDI controller. 
+
+A custom C++ application running on Linux can connect to it via ALSA or JACK MIDI to read messages from the 8 performance pads, buttons, channel faders, and crossfader.Control Capabilities in Generic MIDI ModeCue and Performance Pads: 
+ - The 8 multi-color pads send standard MIDI note-on/note-off messages when tapped or held.Faders and Crossfader: The channel volume faders and the magnetic crossfader transmit continuous controller (CC) messages corresponding to their physical positions.
+ - Transport & Buttons: Standard buttons on the faceplate (like shift, cue, or parameter triggers) broadcast assignable MIDI codes.
+ 
+ #### Important Technical Nuances
+ Not Proprietary, but Class-Compliant: Unlike the SL1, the S9 exposes standard ALSA MIDI ports on Linux without needing specialized user-space driver hacks.Audio Mixing vs. MIDI Data: Moving the physical crossfader or channel faders sends MIDI data to your computer, but it also physically controls the internal analog or digital audio routing passing through the hardware mixer. It behaves simultaneously as a USB audio interface and a MIDI control surface.LED Feedback: Lighting up the performance pads via your C++ application requires sending specific MIDI output note messages back to the mixer's designated MIDI channels.
+
+ ####
+ Based on the official AlphaTheta/Pioneer DJ MIDI mapping documentation for the hardware mixer, here are the specific architectural implementation details for the Pioneer DJM-S9.To use these signals cleanly in a standalone Linux environment (e.g., via libasound or jack), make sure to disable Serato mode via the DJM-S9 Setting Utility or hardware utility mode, allowing the mixer to use standard class-compliant MIDI streams.1. Global Channel StructureThe DJM-S9 splits its controls across dedicated MIDI channels depending on the deck or component.Deck 1 (Left Deck Controls): Transmits and receives on MIDI Channel 1 (0x00 in status bytes).Deck 2 (Right Deck Controls): Transmits and receives on MIDI Channel 2 (0x01 in status bytes).Mixer Section (Faders, Knobs, Master EQ): Transmits on MIDI Channel 3 (0x02 in status bytes).2. The 8 Performance PadsThe behavior of the pads depends heavily on what pad mode is active. However, when the hardware is initialized into basic "User Mode" (often triggered by tapping a pad mode button multiple times), the basic grid layout works via standard Note On / Note Off messages.Deck 1 Pads (Channel 1 - 0x90 / 0x80):Top Row (Pads 1–4): Notes 36 to 39 (0x24 to 0x27)Bottom Row (Pads 5–8): Notes 40 to 43 (0x28 to 0x2B)Deck 2 Pads (Channel 2 - 0x91 / 0x81):Fits the exact same Note layouts as Deck 1, but shifts to MIDI Channel 2.Velocity & Feedback:Input Data: Tapping a pad sends standard Velocity data via Byte 3 (0x00 to 0x7F).LED Control (Output): Sending a Note On message back to the mixer on the respective channel triggers the pad light. If utilizing standard user configurations, a simple maximum velocity value (0x7F) lights it up, while 0x00 switches it off.3. Faders and Crossfader (Mixer Section)All physical faders rely on Control Change (CC) status messages mapped to MIDI Channel 3 (0xB2). These values scale linearly from bottom/left (0x00) to top/right (0x7F).Hardware ControlMIDI ChannelCC Number (Hex)CC Number (Dec)Channel 1 Fader (Left)Channel 30x13CC 19Channel 2 Fader (Right)Channel 30x14CC 20Magvel CrossfaderChannel 30x1FCC 31(Note: Physical adjustments to these controls simultaneously alter hardware audio circuits inside the mixer, unless your hardware utility settings decouple them).4. Transport Controls & BrowsingWhile the S9 lacks traditional "Play" and "Pause" buttons (DJs typically map those to their turntables or CDJs), it features a large array of navigation buttons that map perfectly to standard custom triggers:Browse Rotary Knobs (Push To Select):Left Browse Press: Channel 1, Note 65 (0x41)Right Browse Press: Channel 2, Note 65 (0x41)Rotary Turns: Transmit relative CC data (typically jumping between values like 0x3F for counter-clockwise and 0x41 for clockwise).Load Buttons:Left Load: Channel 1, Note 70 (0x46)Right Load: Channel 2, Note 70 (0x46)Shift Buttons:Left Shift: Channel 1, Note 71 (0x47)Right Shift: Channel 2, Note 71 (0x47)5. C++ Parsing Example (ALSA)When reading raw byte streams via an ALSA MIDI sequencer (snd_seq_t), the incoming 3-byte packets map out structurally as:cpp// Logic abstraction for raw 3-byte MIDI parse
+
+ CODEBLOCK ``
+void parseS9Midi(uint8_t status, uint8_t data1, uint8_t data2) {
+    uint8_t eventType = status & 0xF0;
+    uint8_t channel   = status & 0x0F; // 0 = Ch1, 1 = Ch2, 2 = Ch3
+
+    if (eventType == 0x90) { // Note On
+        if (channel == 0 && data1 == 0x24) {
+            // Handle Deck 1, Pad 1 Pressed!
+        }
+    } else if (eventType == 0xB0) { // Control Change
+        if (channel == 2 && data1 == 0x1F) {
+            // data2 holds crossfader position (0-127)
+        }
+    }
+}
+``

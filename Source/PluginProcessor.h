@@ -62,6 +62,11 @@ public:
     void loadAudioFile (const juce::File& file);
     juce::String getLoadedFileName() const;
     bool isFileLoaded() const;
+    // Empty if the last load attempt succeeded (or nothing's been tried yet).
+    // Set when formatManager can't decode the chosen file at all — e.g. no
+    // MP3 support compiled in — so a bad pick fails loudly in the UI instead
+    // of just silently leaving "No file loaded" up with no explanation.
+    juce::String getLoadError() const;
     void triggerPlayback();
     void stopPlayback();
     bool isPlaying() const { return playing.load(); }
@@ -129,6 +134,15 @@ public:
     // scaled, no time-based fade); teal only starts once the pad is released,
     // then fades over ~1800ms. Requires tracking note-off, not just note-on.
     static constexpr int numPads = 16;
+
+    // MVP-BETA pad roles (see USER_MANUAL.md): pad 0 (bottom-left) plays the
+    // whole file to completion, restart-on-repress — the default fallback
+    // for every pad without a BPM loop region (see triggerOrStopPadLoop()).
+    // Pad 1 (directly right of it) is the one exception to that default:
+    // momentary/hold-to-play — starts from 0 on press, stops immediately on
+    // release, regardless of whether it ever gets a loop region assigned.
+    static constexpr int momentaryPlayPadIndex = 1;
+
     float getPadTouchAmount (int padIndex) const;      // purple: velocity-scaled, sustained while held, 0 once released
     float getPadAfterglowAmount (int padIndex) const;  // teal: 0 while held, fades from full over ~1800ms after release
     bool isPadAssigned (int padIndex) const { return padBank.isSlotAssigned (padIndex); }
@@ -197,6 +211,7 @@ private:
     juce::CriticalSection bufferLock;
     juce::AudioBuffer<float> sampleBuffer;
     juce::String loadedFileName;
+    juce::String loadErrorMessage; // empty = no error; set when formatManager can't read a chosen file
 
     std::atomic<int> playbackPosition { -1 };
     std::atomic<bool> playing { false };

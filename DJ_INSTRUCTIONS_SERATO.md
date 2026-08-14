@@ -30,8 +30,9 @@ That deck now has YuVi Glow sitting on it. Play a track on that deck like you no
 5. **Save it so you never have to redo this**: click "Save as Default for Device." Next time — even after restarting Serato or your Mac — just click "Load Default for Device" and everything's back.
 
 ## Playing it live
-- Hit a mapped pad → your loaded sound plays over the deck's own audio, all the way through.
-- Click "Stop" (in the plugin window) to cut it off early.
+- Hit your mapped pad 1 (bottom-left) → your loaded sound plays over the deck's own audio, all the way through. Hit it again any time to restart from the top.
+- Pad 2 (right next to it) is momentary instead — it only plays while you're physically holding it down, and stops the instant you let go.
+- Click **STOP** (in the plugin window) any time to immediately cut off whatever's playing, no matter which pad started it — it's a master off switch.
 - The "VST MASTER Gain" slider controls how loud the *deck's own sound* is as it passes through the plugin — leave it centered for normal volume. Toggle "Lock @ 0dB" if you want to guarantee the deck's volume can never be accidentally changed by a bumped fader.
 
 ## One thing to check: does Serato already have your controller mapped?
@@ -41,4 +42,4 @@ Serato lets you assign MIDI controllers to its own functions (cue points, loops,
 Nothing here is locked to the Code 49 or MPD226 specifically — the "Edit MIDI Mapping" step (in the MIDI Controller Settings section) works with any MIDI controller. If you're using something else, just skip straight to that step.
 
 ## Also available: Mixxx (free, and works today on more than just Mac)
-If you want to test this whole setup without needing a Mac, see [DJ_INSTRUCTIONS_MIXXX.md](DJ_INSTRUCTIONS_MIXXX.md) — Mixxx is a free DJ app that hosts the exact same plugin as an effect, and runs on Linux too.
+If you want to test this whole setup without needing a Mac, see [DJ_INSTRUCTIONS_MIXXX.md](DJ_INSTRUCTIONS_MIXXX.md) — Mixxx is a free DJ app that runs on Linux too, and hosts YuVi Glow as an effect via its LV2 build (not VST3 — Mixxx doesn't support that format at all).
